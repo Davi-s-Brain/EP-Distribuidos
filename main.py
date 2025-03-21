@@ -1,9 +1,14 @@
+import sys
 import inquirer
 from inquirer.themes import BlueComposure
 
 
-def main():
-    print("Olha o trabalho de Distribuídos ai")
+def main(args: list):
+    parametros = args
+    endereco_peer = parametros[0]
+    vizinhos = parametros[1]
+    diretorio_compartilhado = parametros[2]
+
     escolhas = [inquirer.List("escolha", message="Escolha um comando", choices=[
       "[1] Listar peers",
       "[2] Obter peers",
@@ -19,4 +24,5 @@ def main():
         exit(0)
 
 if __name__ == "__main__":
-    main()
+    args = sys.argv[1:]
+    main(args)
