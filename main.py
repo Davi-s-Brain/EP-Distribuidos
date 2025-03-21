@@ -1,26 +1,37 @@
 import sys
 import inquirer
+import socket
 from inquirer.themes import BlueComposure
 
+MAX_CONNECTIONS = 10
 
 def main(args: list):
-    parametros = args
-    endereco_peer = parametros[0]
-    vizinhos = parametros[1]
-    diretorio_compartilhado = parametros[2]
+    params = args
+    peer_ip_and_port = params[0]
+    neighbor_list = params[1]
+    shared_directory = params[2]
 
-    escolhas = [inquirer.List("escolha", message="Escolha um comando", choices=[
+    PEER_IP = socket.gethostbyname(peer_ip_and_port.split(":")[0])
+    PEER_PORT = int(peer_ip_and_port.split(":")[1])
+    ADDR = (PEER_IP, PEER_PORT)
+
+    peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    peer_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    peer_socket.bind(ADDR)
+    peer_socket.listen(MAX_CONNECTIONS)
+
+    choices = [inquirer.List("choice", message="Escolha um comando", choices=[
       "[1] Listar peers",
       "[2] Obter peers",
       "[3] Listar arquivos locais",
       "[4] Buscar arquivos",
       "[5] Exibir estatisticas",
       "[6] Alterar tamanho de chunk",
-      "[9] Sair"
+      "[7] Sair"
     ])]
-    acao_escolhida = inquirer.prompt(escolhas, theme=BlueComposure())
+    selected_action = inquirer.prompt(choices, theme=BlueComposure())
 
-    if acao_escolhida["escolha"] == "[9] Sair":
+    if selected_action["choice"] == "[9] Sair":
         exit(0)
 
 if __name__ == "__main__":
