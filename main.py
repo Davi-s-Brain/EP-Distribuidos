@@ -1,6 +1,7 @@
+import os
 import sys
-import inquirer
 import socket
+import inquirer
 from inquirer.themes import BlueComposure
 
 MAX_CONNECTIONS = 10
@@ -44,6 +45,16 @@ def handle_file(path: str) -> list[str]:
     return neighbor
 
 
+def list_local_files(directory: str) -> None:
+    try:
+        files = os.listdir(directory)
+    except Exception as error:
+        print(f"Error reading directory {directory}: {error}")
+ 
+    for file in files:
+        print(f"{file}")
+
+
 def main(args: list):
     params = args
     peer_ip_and_port = params[0]
@@ -81,7 +92,10 @@ def main(args: list):
     ])]
     selected_action = inquirer.prompt(choices, theme=BlueComposure())
 
-    if selected_action["choice"] == "[9] Sair":
+    if selected_action["choice"] == "[3] Listar arquivos locais":
+        list_local_files(shared_directory)
+
+    elif selected_action["choice"] == "[9] Sair":
         exit(0)
 
 
