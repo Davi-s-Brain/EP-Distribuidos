@@ -40,7 +40,7 @@ def handle_file(path: str) -> list[str]:
                 formated_neighbor = file_neighbor.strip()
                 neighbor.append(formated_neighbor)
     except IOError as error:
-        print(f"Error reading file {path}: {error}")
+        print(f"Erro ao ler o arquivo {path}: {error}")
         return []
     return neighbor
 
@@ -49,10 +49,24 @@ def list_local_files(directory: str) -> None:
     try:
         files = os.listdir(directory)
     except Exception as error:
-        print(f"Error reading directory {directory}: {error}")
+        print(f"Erro ao ler o diretório {directory}: {error}")
  
     for file in files:
         print(f"{file}")
+
+
+def verify_files_path(directory: str) -> bool:
+    if not os.path.exists(directory):
+        print(f"O diretório {directory} não existe")
+        return False
+    elif not os.path.isdir(directory):
+        print(f"{directory} não é um diretório")
+        return False
+    elif not os.access(directory, os.R_OK):
+        print(f"O diretório {directory} não é acessível")
+        return False
+
+    return True
 
 
 def main(args: list):
@@ -60,6 +74,11 @@ def main(args: list):
     peer_ip_and_port = params[0]
     neighbor_list = params[1]
     shared_directory = params[2]
+
+    isPathValid = verify_files_path(shared_directory)
+
+    if not isPathValid:
+        exit(0)
 
     PEER_IP = socket.gethostbyname(peer_ip_and_port.split(":")[0])
     PEER_PORT = int(peer_ip_and_port.split(":")[1])
