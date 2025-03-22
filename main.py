@@ -12,6 +12,7 @@ class Peer:
         self.port = port
         self.shared_directory = shared_directory
         self.status = status
+        self.clock = 0
 
     def __str__(self):
         return f"Peer {self.ip}:{self.port} - {self.shared_directory}"
