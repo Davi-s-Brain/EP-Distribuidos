@@ -50,7 +50,7 @@ class Peer:
             server.bind((self.ip, int(self.port)))
             server.listen(MAX_CONNECTIONS)
 
-            ip = socket.gethostbyname(socket.gethostname())
+            ip = socket.gethostbyname(self.ip)
             print(f"[Servidor] Escutando em {ip}:{self.port}")
 
             while True:
