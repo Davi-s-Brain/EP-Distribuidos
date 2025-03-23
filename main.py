@@ -120,13 +120,13 @@ def main(args: list):
     if not isPathValid:
         exit(0)
 
-    PEER_IP = socket.gethostbyname(peer_ip_and_port.split(":")[0])
-    PEER_PORT = int(peer_ip_and_port.split(":")[1])
+    ##PEER_IP = socket.gethostbyname(peer_ip_and_port.split(":")[0])
+    ##PEER_PORT = int(peer_ip_and_port.split(":")[1])
 
     initial_peer = Peer.create_peer(
         ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE")
 
-    '''for neighbor in handle_file(neighbor_list):
+    for neighbor in handle_file(neighbor_list):
         split_neighbor = neighbor.split(":")
         neighbor_ip = split_neighbor[0]
         neighbor_port = split_neighbor[1]
@@ -140,9 +140,9 @@ def main(args: list):
                 f"Adicionando novo peer {neighbor_ip}:{neighbor_port} status OFFLINE")
         else:
             print(f"Erro na criação do peer")
-    '''
+    
 
-    '''choices = [inquirer.List("choice", message="Escolha um comando", choices=[
+    choices = [inquirer.List("choice", message="Escolha um comando", choices=[
         "[1] Listar peers",
         "[2] Obter peers",
         "[3] Listar arquivos locais",
@@ -152,18 +152,16 @@ def main(args: list):
         "[7] Sair"
     ])]
     selected_action = inquirer.prompt(choices, theme=BlueComposure())
-    ''
-    '''
-    '''
-        if selected_action["choice"] == "[3] Listar arquivos locais":
-            list_local_files(shared_directory)
+  
+    if selected_action["choice"] == "[3] Listar arquivos locais":
+        list_local_files(shared_directory)
 
-        elif selected_action["choice"] == "[9] Sair":
+    elif selected_action["choice"] == "[9] Sair":
             exit(0)
-        elif selected_action["choice"] == "[1] Listar peers": ##TODO: to só testando!!!!!!!!!!!!!
-            command = "TIME"
-            initial_peer.send_command(command,PEER_IP,9002)
-    '''
+    elif selected_action["choice"] == "[1] Listar peers": ##TODO: to só testando!!!!!!!!!!!!!
+        command = "TIME"
+        initial_peer.send_command(command,PEER_IP,9002)
+    
 
 if __name__ == "__main__":
     args = sys.argv[1:]
