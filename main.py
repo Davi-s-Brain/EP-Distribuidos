@@ -78,8 +78,9 @@ class Peer:
             for neighbor in self.neighbors:
                 if(neighbor["ip"] != self.ip and neighbor["port"] != self.port):
                     vizinhos.append(f"{neighbor['ip']}:{neighbor['port']}:{neighbor['status']}")
-            response = f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {vizinhos}"  
-            conn.sendall(response.encode())  
+            #response = f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {vizinhos}"  
+            #conn.sendall(response.encode())  
+            self.send_command(f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {vizinhos}", sender_ip, int(sender_port))
 
         elif(splitted_command[2] == "PEER_LIST"):
             print(f"Resposta recebida: '{command}'")
