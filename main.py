@@ -17,6 +17,9 @@ class Peer:
         self.clock = 0
         self.neighbors = neighbors
 
+    def increment_clock(self):
+        self.clock += 1
+
     @classmethod
     def create_peer(cls, ip, port, shared_directory, status):
         neighbors = []
