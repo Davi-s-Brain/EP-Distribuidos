@@ -76,15 +76,18 @@ class Peer:
         ##conn.sendall(response.encode())
 
     def send_command(self, command, ip, port):
-        #ip,port = command.split(":", 1)
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((ip, port))
-                s.sendall(command.encode())
-                #response = s.recv(1024).decode()
-                print(f"Encaminhando mensagem {command} para {ip}{port}")
-        except Exception as e:
-            print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
+        splitted_command = command.split(" ")
+        if(len(splitted_command) < 3):
+            print("Incorret message format")
+        else:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.connect((ip, port))
+                    s.sendall(command.encode())
+                    #response = s.recv(1024).decode()
+                    print(f"Encaminhando mensagem {command} para {ip}{port}")
+            except Exception as e:
+                print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
 
 def handle_file(path: str) -> list[str]:
     neighbor = []
