@@ -104,7 +104,7 @@ class Peer:
                     s.connect((ip, port))
                     s.sendall(command.encode())
                     #response = s.recv(1024).decode()
-                    print(self.format_message(self, command, ip, port))
+                    print(self.format_message(command, ip, port))
             except Exception as e:
                 print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
 
@@ -194,9 +194,22 @@ def main(args: list):
         selected_action = inquirer.prompt(choices, theme=BlueComposure())
 
         if selected_action["choice"] == "[1] Listar peers":
+            choices = ["[0] voltar para o menu anterior"]
+            for index, neighbor in enumerate(main_peer.neighbors, start=1):
+                choice_str = f"[{index}] {neighbor['ip']}:{neighbor['port']} {neighbor['status']}"
+                choices.append(choice_str)
+
             choice_peer = [inquirer.List(
-                "choice_peers", message="Lista de peers\n", choices=main_peer.neighbors)]
+                "choice_peers", message="Lista de peers", choices=choices)]
             selected_peer = inquirer.prompt(choice_peer, theme=BlueComposure())
+
+            for choice in choices:
+                if selected_peer["choice_peers"] == choice:
+                    peer = main_peer.neighbors[choices.index(choice) - 1]
+            
+            main_peer.send_command(
+                f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n", peer["ip"], int(peer["port"]))
+            
 
         elif selected_action["choice"] == "[3] Listar arquivos locais":
             list_local_files(shared_directory)
