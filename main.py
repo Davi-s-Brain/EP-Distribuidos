@@ -51,9 +51,6 @@ class Peer:
             server.bind((self.ip, int(self.port)))
             server.listen(MAX_CONNECTIONS)
 
-            ip = socket.gethostbyname(self.ip)
-            print(f"[Servidor] Escutando em {ip}:{self.port}")
-
             while True:
                 conn, addr = server.accept()
                 data = conn.recv(1024).decode()
@@ -80,7 +77,7 @@ class Peer:
             vizinhos = []
             for neighbor in self.neighbors:
                 if(neighbor["ip"] != self.ip and neighbor["port"] != self.port):
-                    vizinhos.append(f"{neighbor["ip"]}:{neighbor["port"]}:{neighbor["status"]}")
+                    vizinhos.append(f"{neighbor['ip']}:{neighbor['port']}:{neighbor['status']}")
             response = f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {vizinhos}"  
             conn.sendall(response.encode())  
 
@@ -96,7 +93,7 @@ class Peer:
         
         self.increment_clock()
 
-    def send_command(self, command, ip, port):
+    def send_command(self, command, ip, port): ##TODO: terminar de mandar as mensagens
         self.increment_clock()
         splitted_command = command.split(" ")
         if(len(splitted_command) < 3):
@@ -181,7 +178,7 @@ def main(args: list):
     PEER_IP = socket.gethostbyname(peer_ip_and_port.split(":")[0])
     PEER_PORT = peer_ip_and_port.split(":")[1]
 
-    Peer.create_peer(
+    main_peer = Peer.create_peer(
         ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE")
 
     while selected_action["choice"] != "[7] Sair":
@@ -196,7 +193,12 @@ def main(args: list):
         ])]
         selected_action = inquirer.prompt(choices, theme=BlueComposure())
 
-        if selected_action["choice"] == "[3] Listar arquivos locais":
+        if selected_action["choice"] == "[1] Listar peers":
+            choice_peer = [inquirer.List(
+                "choice_peers", message="Lista de peers\n", choices=main_peer.neighbors)]
+            selected_peer = inquirer.prompt(choice_peer, theme=BlueComposure())
+
+        elif selected_action["choice"] == "[3] Listar arquivos locais":
             list_local_files(shared_directory)
 
         elif selected_action["choice"] == "[9] Sair":
