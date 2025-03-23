@@ -110,7 +110,7 @@ class Peer:
                 print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
 
     def format_message(self, command, destiny_ip, destiny_port):
-        return f"Encaminhando mensagem '{self.ip}:{self.port} {self.clock} {command}' para {destiny_ip}:{destiny_port}"
+        return f"Encaminhando mensagem '{command}' para {destiny_ip}:{destiny_port}"
 
     def change_neighbor_status(self, ip, port, status):
 
@@ -222,6 +222,12 @@ def main(args: list):
             for neighbor in main_peer.neighbors:
                 main_peer.send_command(f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE", neighbor["ip"], neighbor["port"])
             exit(0)
+
+        elif selected_action["choice"] == "[2] Obter peers":
+            main_peer.increment_clock()
+            for neighbor in main_peer.neighbors:
+                main_peer.send_command(f"{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS", neighbor["ip"], int(neighbor["port"]))
+
 
 
 if __name__ == "__main__":
