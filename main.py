@@ -20,6 +20,7 @@ class Peer:
 
     def increment_clock(self):
         self.clock += 1
+        print(f"Atualizando relogio para {self.clock}")
 
     @classmethod
     def create_peer(cls, ip, port, shared_directory, status):
@@ -56,7 +57,8 @@ class Peer:
             while True:
                 conn, addr = server.accept()
                 data = conn.recv(1024).decode()
-                self.handle_command(data, conn)
+                if data:
+                    self.handle_command(data, conn)
                 conn.close()
 
         threading.Thread(target=server_thread, daemon=True).start()
@@ -72,6 +74,7 @@ class Peer:
         ##conn.sendall(response.encode())
 
     def send_command(self, command, ip, port):
+        self.increment_clock()
         splitted_command = command.split(" ")
         if(len(splitted_command) < 3):
             print("Incorret message format")
@@ -81,9 +84,12 @@ class Peer:
                     s.connect((ip, port))
                     s.sendall(command.encode())
                     #response = s.recv(1024).decode()
-                    print(f"Encaminhando mensagem {command} para {ip}{port}")
+                    print(self.format_message(self, command, ip, port))
             except Exception as e:
                 print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
+
+    def format_message(self, command, destiny_ip, destiny_port):
+        return f"Encaminhando mensagem '{self.ip}:{self.port} {self.clock} {command}' para {destiny_ip}:{destiny_port}\n"
 
 def handle_file(path: str) -> list[str]:
     neighbor = []
