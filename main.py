@@ -64,14 +64,37 @@ class Peer:
         threading.Thread(target=server_thread, daemon=True).start()
 
 
-    def handle_command(self, command, conn):
-        if command == "TIME":
-            print("Recebi um Time")
-        elif command.startswith("ECHO "):
-            print("Recebi um echo")
+    def handle_command(self, command, conn): ##TODO: terminar
+        
+        
+        splitted_command = command.split(" ")
+
+        sender_ip = splitted_command[0].split(":")[0]
+        sender_port = splitted_command[0].split(":")[1]
+
+        if (splitted_command[2] == "HELLO"):
+            print(f"Mensagem recebida: '{command}'")
+            self.change_neighbor_status(sender_ip, sender_port, "ONLINE")
+
+        elif (splitted_command[2] == "GET_PEERS"):
+            vizinhos = []
+            for neighbor in self.neighbors:
+                if(neighbor["ip"] != self.ip and neighbor["port"] != self.port):
+                    vizinhos.append(f"{neighbor["ip"]}:{neighbor["port"]}:{neighbor["status"]}")
+            response = f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {vizinhos}"  
+            conn.sendall(response.encode())  
+
+        elif(splitted_command[2] == "PEER_LIST"):
+            print(f"Resposta recebida: '{command}'")
+            recieved_neighbors = command.split(" ")[:4]
+            for neighbor in recieved_neighbors:
+                neighbor_info = neighbor.split(":")
+                self.change_neighbor_status(neighbor_info[0], neighbor_info[1], "ONLINE")
+
         else:
             response = "Comando desconhecido"
-        ##conn.sendall(response.encode())
+        
+        self.increment_clock()
 
     def send_command(self, command, ip, port):
         self.increment_clock()
@@ -90,6 +113,22 @@ class Peer:
 
     def format_message(self, command, destiny_ip, destiny_port):
         return f"Encaminhando mensagem '{self.ip}:{self.port} {self.clock} {command}' para {destiny_ip}:{destiny_port}\n"
+
+    def change_neighbor_status(self, ip, port, status):
+
+        for neighbor in self.neighbors:
+            if(neighbor["ip"] == ip and neighbor["port"] == port):
+                neighbor["status"] = status
+                print(f"Atualizando peer {ip}:{port} status {status}")
+                return
+
+        neighbor_obj = {
+            "ip": ip,
+            "port": port,
+            "status": status
+        }
+        self.neighbors.append(neighbor_obj)
+        print(f"Adicionando novo peer {ip}:{port} status {status}")
 
 def handle_file(path: str) -> list[str]:
     neighbor = []
