@@ -16,6 +16,7 @@ class Peer:
         self.status = status
         self.clock = 0
         self.neighbors = neighbors
+        self.start_server()
 
     def increment_clock(self):
         self.clock += 1
@@ -24,11 +25,6 @@ class Peer:
     def create_peer(cls, ip, port, shared_directory, status):
         neighbors = []
         last_port_digit = port[-1]
-        address = (ip, int(port))
-        peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        peer_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        peer_socket.bind(address)
-        peer_socket.listen(MAX_CONNECTIONS)
 
         with open(f"./vizinhos/v{last_port_digit}_vizinhos.txt") as file_vizinhos:
             neighbors_file = file_vizinhos.readlines()
@@ -51,8 +47,8 @@ class Peer:
     def start_server(self):
         def server_thread():
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server.bind(('', self.port))
-            server.listen()
+            server.bind((self.ip, int(self.port)))
+            server.listen(MAX_CONNECTIONS)
 
             ip = socket.gethostbyname(socket.gethostname())
             print(f"[Servidor] Escutando em {ip}:{self.port}")
