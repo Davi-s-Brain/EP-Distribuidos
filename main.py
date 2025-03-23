@@ -64,7 +64,7 @@ class Peer:
     def handle_command(self, command, conn): ##TODO: terminar
         
         
-        splitted_command = command.split(" ")
+        splitted_command = command.split()
 
         sender_ip = splitted_command[0].split(":")[0]
         sender_port = splitted_command[0].split(":")[1]
@@ -83,19 +83,20 @@ class Peer:
 
         elif(splitted_command[2] == "PEER_LIST"):
             print(f"Resposta recebida: '{command}'")
-            recieved_neighbors = command.split(" ")[:4]
+            recieved_neighbors = command.split()[:4]
             for neighbor in recieved_neighbors:
                 neighbor_info = neighbor.split(":")
                 self.change_neighbor_status(neighbor_info[0], neighbor_info[1], "ONLINE")
 
-        else:
-            response = "Comando desconhecido"
+        elif(splitted_command[2] == "BYE"):
+            self.change_neighbor_status(sender_ip, sender_ip, "OFFLINE")
+
         
         self.increment_clock()
 
     def send_command(self, command, ip, port): ##TODO: terminar de mandar as mensagens
-        self.increment_clock()
-        splitted_command = command.split(" ")
+        #self.increment_clock()
+        splitted_command = command.split()
         if(len(splitted_command) < 3):
             print("Incorret message format")
         else:
@@ -109,7 +110,7 @@ class Peer:
                 print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
 
     def format_message(self, command, destiny_ip, destiny_port):
-        return f"Encaminhando mensagem '{self.ip}:{self.port} {self.clock} {command}' para {destiny_ip}:{destiny_port}\n"
+        return f"Encaminhando mensagem '{self.ip}:{self.port} {self.clock} {command}' para {destiny_ip}:{destiny_port}"
 
     def change_neighbor_status(self, ip, port, status):
 
@@ -194,6 +195,7 @@ def main(args: list):
         selected_action = inquirer.prompt(choices, theme=BlueComposure())
 
         if selected_action["choice"] == "[1] Listar peers":
+            main_peer.increment_clock()
             choices = ["[0] voltar para o menu anterior"]
             for index, neighbor in enumerate(main_peer.neighbors, start=1):
                 choice_str = f"[{index}] {neighbor['ip']}:{neighbor['port']} {neighbor['status']}"
@@ -212,9 +214,13 @@ def main(args: list):
             
 
         elif selected_action["choice"] == "[3] Listar arquivos locais":
+            main_peer.increment_clock()
             list_local_files(shared_directory)
 
         elif selected_action["choice"] == "[9] Sair":
+            main_peer.increment_clock()
+            for neighbor in main_peer.neighbors:
+                main_peer.send_command(f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE", neighbor["ip"], neighbor["port"])
             exit(0)
 
 
