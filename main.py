@@ -61,7 +61,6 @@ class Peer:
         threading.Thread(target=server_thread, daemon=True).start()
 
     def handle_command(self, command, conn):
-
         splitted_command = command.split()
 
         sender_ip = splitted_command[0].split(":")[0]
@@ -74,12 +73,11 @@ class Peer:
         elif (splitted_command[2] == "GET_PEERS"):
             vizinhos = []
             for neighbor in self.neighbors:
-                # if(neighbor["ip"] != self.ip and neighbor["port"] != self.port):
                 vizinhos.append(
                     f"{neighbor['ip']}:{neighbor['port']}:{neighbor['status']}")
             peers_str = " ".join(vizinhos)
             self.send_command(
-                f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {peers_str}", sender_ip, int(sender_port))
+                f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {peers_str}:0", sender_ip, int(sender_port))
 
         elif (splitted_command[2] == "PEER_LIST"):
             print(f"Resposta recebida: '{command}'")
@@ -212,6 +210,12 @@ def main(args: list):
             main_peer.send_command(
                 f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n", peer["ip"], int(peer["port"]))
 
+        elif selected_action["choice"] == "[2] Obter peers":
+            main_peer.increment_clock()
+            for neighbor in main_peer.neighbors:
+                main_peer.send_command(
+                    f"{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS", neighbor["ip"], int(neighbor["port"]))
+
         elif selected_action["choice"] == "[3] Listar arquivos locais":
             main_peer.increment_clock()
             list_local_files(shared_directory)
@@ -222,12 +226,6 @@ def main(args: list):
                 main_peer.send_command(
                     f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE", neighbor["ip"], neighbor["port"])
             exit(0)
-
-        elif selected_action["choice"] == "[2] Obter peers":
-            main_peer.increment_clock()
-            for neighbor in main_peer.neighbors:
-                main_peer.send_command(
-                    f"{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS", neighbor["ip"], int(neighbor["port"]))
 
 
 if __name__ == "__main__":
