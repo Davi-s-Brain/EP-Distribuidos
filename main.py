@@ -92,19 +92,21 @@ class Peer:
 
         self.increment_clock()
 
-    def send_command(self, command, ip, port):
+    def send_command(self, command, ip, port) -> bool:
         splitted_command = command.split()
-        if (len(splitted_command) < 3):
+        if len(splitted_command) < 3:
             print("Incorret message format")
+            return False
         else:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((ip, port))
                     s.sendall(command.encode())
                     print(self.format_message(command, ip, port))
+                return True
             except Exception as e:
-                print(
-                    f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
+                print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
+                return False
 
     def format_message(self, command, destiny_ip, destiny_port):
         return f"Encaminhando mensagem '{command}' para {destiny_ip}:{destiny_port}"
@@ -207,8 +209,11 @@ def main(args: list):
                 if selected_peer["choice_peers"] == choice:
                     peer = main_peer.neighbors[choices.index(choice) - 1]
 
-            main_peer.send_command(
+            send_message = main_peer.send_command(
                 f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n", peer["ip"], int(peer["port"]))
+
+            if send_message:
+                main_peer.change_neighbor_status(peer["ip"], peer["port"], "ONLINE")
 
         elif selected_action["choice"] == "[2] Obter peers":
             main_peer.increment_clock()
