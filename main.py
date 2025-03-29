@@ -183,6 +183,7 @@ def main(args: list):
         ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE")
 
     while selected_action["choice"] != "[7] Sair":
+        send_message = False
         choices = [inquirer.List("choice", message="Escolha um comando", choices=[
             "[1] Listar peers",
             "[2] Obter peers",
@@ -206,11 +207,12 @@ def main(args: list):
             selected_peer = inquirer.prompt(choice_peer, theme=BlueComposure())
 
             for choice in choices:
+                if selected_peer["choice_peers"] == "[0] voltar para o menu anterior":
+                    break
                 if selected_peer["choice_peers"] == choice:
                     peer = main_peer.neighbors[choices.index(choice) - 1]
-
-            send_message = main_peer.send_command(
-                f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n", peer["ip"], int(peer["port"]))
+                    send_message = main_peer.send_command(
+                        f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n", peer["ip"], int(peer["port"]))
 
             if send_message:
                 main_peer.change_neighbor_status(peer["ip"], peer["port"], "ONLINE")
