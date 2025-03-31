@@ -47,18 +47,21 @@ class Peer:
 
     def start_server(self):
         def server_thread():
-            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server.bind((self.ip, int(self.port)))
-            server.listen(MAX_CONNECTIONS)
+            try:
+                server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                server.bind((self.ip, int(self.port)))
+                server.listen(MAX_CONNECTIONS)
 
-            while True:
-                conn, addr = server.accept()
-                data = conn.recv(1024).decode()
-                if data:
-                    self.handle_command(data, conn)
-
-                    
-                conn.close()
+                while True:
+                    conn, addr = server.accept()
+                    data = conn.recv(1024).decode()
+                    if data:
+                        self.handle_command(data, conn)
+                    conn.close()
+            
+            except Exception as e:
+                print(f"[Erro] {self.ip}:{self.port} não está disponível: {e}")
+                exit(0)
 
         threading.Thread(target=server_thread, daemon=True).start()
 
@@ -103,23 +106,6 @@ class Peer:
             self.change_neighbor_status(sender_ip, sender_port, "OFFLINE")
 
         
-
-    '''def send_command(self, command, ip, port) -> bool:
-        splitted_command = command.split()
-        if len(splitted_command) < 3:
-            print("Incorret message format")
-            return False
-        else:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.connect((ip, port))
-                    s.sendall(command.encode())
-                    print(self.format_message(command, ip, port))
-                return True
-            except Exception as e:
-                print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
-                return False
-    '''
     def send_command(self, command, ip, port, expect_response=False) -> bool:
         splitted_command = command.split()
         if len(splitted_command) < 3:
@@ -135,10 +121,6 @@ class Peer:
                     if expect_response:
                         response = s.recv(4096).decode()
                         self.handle_command(response, s)
-                        
-
-                        
-
                 return True
             except Exception as e:
                 print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
@@ -260,7 +242,6 @@ def main(args: list):
             for neighbor in original_neighbors:
                 main_peer.send_command(
                     f"{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS", neighbor["ip"], int(neighbor["port"]),expect_response=True)
-
 
         elif selected_action["choice"] == "[3] Listar arquivos locais":
             main_peer.increment_clock()
