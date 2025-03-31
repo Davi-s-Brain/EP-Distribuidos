@@ -55,8 +55,8 @@ class Peer:
                 conn, addr = server.accept()
                 data = conn.recv(1024).decode()
                 if data:
-                    self.increment_clock()
                     self.handle_command(data, conn)
+                    self.increment_clock()
                 conn.close()
 
         threading.Thread(target=server_thread, daemon=True).start()
@@ -69,16 +69,20 @@ class Peer:
         sender_port = splitted_command[0].split(":")[1]
 
         if (splitted_command[2] == "HELLO"):
+            #self.increment_clock()
             print(f"Mensagem recebida: '{command}'")
             self.change_neighbor_status(sender_ip, sender_port, "ONLINE")
 
         elif (splitted_command[2] == "GET_PEERS"):
+            print(f"Resposta recebida: '{command}'")
+            self.increment_clock()
             vizinhos = []
             for neighbor in self.neighbors:
                 if(neighbor['port'] != sender_port):
                     vizinhos.append(
                         f"{neighbor['ip']}:{neighbor['port']}:{neighbor['status']}")
             peers_str = " ".join(vizinhos)
+            
             #self.send_command(
                 #f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {peers_str}:0", sender_ip, int(sender_port))
             
@@ -87,14 +91,16 @@ class Peer:
             conn.sendall(response.encode())
 
         elif (splitted_command[2] == "PEER_LIST"):
-            print(f"Resposta recebida: '{command}'")
+            #print(f"Resposta recebida: '{command}'")
+            #self.increment_clock()
             recieved_neighbors = command.split()[4:]
             for neighbor in recieved_neighbors:
                 neighbor_info = neighbor.split(":")
                 self.change_neighbor_status(
-                    neighbor_info[0], neighbor_info[1], "ONLINE")
+                    neighbor_info[0], neighbor_info[1], neighbor_info[2])
 
         elif (splitted_command[2] == "BYE"):
+            #self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "OFFLINE")
 
         
@@ -123,16 +129,19 @@ class Peer:
         else:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    
-                    s.connect((ip, port))
                     self.increment_clock()
+                    s.connect((ip, port))
                     s.sendall(command.encode())
                     print(self.format_message(command, ip, port))
+                    
 
                     if expect_response:
                         response = s.recv(4096).decode()
-                        self.increment_clock()
+                        print(f"Resposta recebida: '{response}'")
+                        
                         self.handle_command(response, s)
+                        self.increment_clock()
+                        
                         
 
                         
