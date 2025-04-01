@@ -5,6 +5,7 @@ import threading
 MAX_CONNECTIONS = 10
 
 
+# Classe que representa um peer
 class Peer:
     def __init__(self, ip, port, shared_directory, status, neighbors):
         self.ip = ip
@@ -19,6 +20,7 @@ class Peer:
         self.clock += 1
         print(f" => Atualizando relogio para {self.clock}")
 
+    # Método de classe para criar um peer
     @classmethod
     def create_peer(cls, ip, port, shared_directory, status):
         neighbors = []
@@ -42,6 +44,7 @@ class Peer:
 
         return cls(ip, port, shared_directory, status, neighbors)
 
+    # Método para iniciar o servidor que escuta por conexões de outros peers
     def start_server(self):
         def server_thread():
             try:
@@ -62,18 +65,21 @@ class Peer:
 
         threading.Thread(target=server_thread, daemon=True).start()
 
+    # Método para lidar com os comandos recebidos
     def handle_command(self, command, conn):
         splitted_command = command.split()
 
         sender_ip = splitted_command[0].split(":")[0]
         sender_port = splitted_command[0].split(":")[1]
 
+        # Verifica se o comando recebido é do tipo HELLO
         if (splitted_command[2] == "HELLO"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida: '{formated_command}'")
             self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "ONLINE")
 
+        # Verifica se o comando recebido é do tipo GET_PEERS
         elif (splitted_command[2] == "GET_PEERS"):
             formated_command = helpers.format_string(command)
             print(f"Resposta recebida: '{formated_command}'")
@@ -92,6 +98,7 @@ class Peer:
                 f"Encaminhando mensagem '{formated_response}' para {sender_ip}:{sender_port}")
             conn.sendall(response.encode())
 
+        # Verifica se o comando recebido é do tipo PEER_LIST
         elif (splitted_command[2] == "PEER_LIST"):
             formated_command = helpers.format_string(command)
             print(f"Resposta recebida: '{formated_command}'")
@@ -102,12 +109,14 @@ class Peer:
                 self.change_neighbor_status(
                     neighbor_info[0], neighbor_info[1], neighbor_info[2])
 
+        # Verifica se o comando recebido é do tipo BYE
         elif (splitted_command[2] == "BYE"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida '{formated_command}'")
             self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "OFFLINE")
 
+    # Método que envia comandos para outros peers
     def send_command(self, command, ip, port, expect_response=False) -> bool:
         splitted_command = command.split()
         if len(splitted_command) < 3:
@@ -128,9 +137,7 @@ class Peer:
                     f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
                 return False
 
-    def format_message(self, command, destiny_ip, destiny_port):
-        return f"Encaminhando mensagem '{command}' para {destiny_ip}:{destiny_port}"
-
+    # Método que altera o status de um vizinho e o adiciona se não existir
     def change_neighbor_status(self, ip, port, status):
         for neighbor in self.neighbors:
             if (neighbor["ip"] == ip and neighbor["port"] == port):

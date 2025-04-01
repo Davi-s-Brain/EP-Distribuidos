@@ -1,6 +1,6 @@
 import os
 
-
+# Função que lista os arquivos locais dado um certo diretório
 def list_local_files(directory: str) -> None:
     try:
         files = os.listdir(directory)
@@ -10,7 +10,7 @@ def list_local_files(directory: str) -> None:
     for file in files:
         print(f"{file}")
 
-
+# Função que verifica se o diretório existe, se é um diretório e se é acessível
 def verify_files_path(directory: str) -> bool:
     if not os.path.exists(directory):
         print(f"O diretório {directory} não existe")
@@ -24,6 +24,6 @@ def verify_files_path(directory: str) -> bool:
 
     return True
 
-
+# Função que formata uma string removendo quebras de linha
 def format_string(string: str) -> str:
     return string.replace("\n", "")
