@@ -103,6 +103,8 @@ class Peer:
                     neighbor_info[0], neighbor_info[1], neighbor_info[2])
 
         elif (splitted_command[2] == "BYE"):
+            print(f"Mensagem recebida '{command}'")
+            self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "OFFLINE")
 
         
@@ -247,13 +249,13 @@ def main(args: list):
             main_peer.increment_clock()
             list_local_files(shared_directory)
 
-        elif selected_action["choice"] == "[9] Sair":
+        elif selected_action["choice"] == "[7] Sair":
             print("Saindo...")
             for neighbor in main_peer.neighbors:
                 main_peer.increment_clock()
                 print(f"Encaminhando Mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE' para {neighbor["ip"]}:{neighbor["port"]}")
                 main_peer.send_command(
-                    f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE", neighbor["ip"], neighbor["port"])
+                    f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE", neighbor["ip"], int(neighbor["port"]))
             exit(0)
 
 
