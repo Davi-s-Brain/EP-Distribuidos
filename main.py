@@ -71,6 +71,7 @@ class Peer:
 
         if (splitted_command[2] == "HELLO"):
             print(f"Mensagem recebida: '{command}'")
+            self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "ONLINE")
 
         elif (splitted_command[2] == "GET_PEERS"):
@@ -129,7 +130,7 @@ class Peer:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((ip, port))
                     s.sendall(command.encode())
-                    print(self.format_message(command, ip, port))
+                    #print(self.format_message(command, ip, port))
 
                     if expect_response:
                         response = s.recv(4096).decode()
@@ -245,6 +246,8 @@ def main(args: list):
                     break
                 if selected_peer["choice_peers"] == choice:
                     peer = main_peer.neighbors[choices.index(choice) - 1]
+                    main_peer.increment_clock()
+                    print(f"Encaminhando mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO' para {peer["ip"]}:{peer["port"]}")
                     send_message = main_peer.send_command(
                         f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n", peer["ip"], int(peer["port"]))
 
