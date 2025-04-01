@@ -84,12 +84,12 @@ class Peer:
             for neighbor in self.neighbors:
                 if(neighbor['port'] != sender_port):
                     vizinhos.append(
-                        f"{neighbor['ip']}:{neighbor['port']}:{neighbor['status']}")
+                        f"{neighbor['ip']}:{neighbor['port']}:{neighbor['status']}:0")
             peers_str = " ".join(vizinhos)
             #self.send_command(
                 #f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {peers_str}:0", sender_ip, int(sender_port))
             self.increment_clock()
-            response = f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {peers_str}:0"#, sender_ip, int(sender_port)
+            response = f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {peers_str}\n"#, sender_ip, int(sender_port)
             print(f"Encaminhando mensagem '{response}' para {sender_ip}:{sender_port}")
             conn.sendall(response.encode())
 
@@ -248,7 +248,10 @@ def main(args: list):
             list_local_files(shared_directory)
 
         elif selected_action["choice"] == "[9] Sair":
+            print("Saindo...")
             for neighbor in main_peer.neighbors:
+                main_peer.increment_clock()
+                print(f"Encaminhando Mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE' para {neighbor["ip"]}:{neighbor["port"]}")
                 main_peer.send_command(
                     f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE", neighbor["ip"], neighbor["port"])
             exit(0)
