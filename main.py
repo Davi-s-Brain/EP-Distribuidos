@@ -55,8 +55,9 @@ class Peer:
                 conn, addr = server.accept()
                 data = conn.recv(1024).decode()
                 if data:
-                    self.increment_clock()
                     self.handle_command(data, conn)
+
+                    
                 conn.close()
 
         threading.Thread(target=server_thread, daemon=True).start()
@@ -74,6 +75,7 @@ class Peer:
 
         elif (splitted_command[2] == "GET_PEERS"):
             print(f"Resposta recebida: '{command}'")
+            self.increment_clock()
             vizinhos = []
             for neighbor in self.neighbors:
                 if(neighbor['port'] != sender_port):
@@ -82,13 +84,14 @@ class Peer:
             peers_str = " ".join(vizinhos)
             #self.send_command(
                 #f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {peers_str}:0", sender_ip, int(sender_port))
-            
+            self.increment_clock()
             response = f"{self.ip}:{self.port} {self.clock} PEER_LIST {len(self.neighbors)} {peers_str}:0"#, sender_ip, int(sender_port)
             print(f"Encaminhando mensagem '{response}' para {sender_ip}:{sender_port}")
             conn.sendall(response.encode())
 
         elif (splitted_command[2] == "PEER_LIST"):
             print(f"Resposta recebida: '{command}'")
+            self.increment_clock()
             recieved_neighbors = command.split()[4:]
             for neighbor in recieved_neighbors:
                 neighbor_info = neighbor.split(":")
@@ -124,15 +127,12 @@ class Peer:
         else:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    
                     s.connect((ip, port))
-                    self.increment_clock()
                     s.sendall(command.encode())
                     print(self.format_message(command, ip, port))
 
                     if expect_response:
                         response = s.recv(4096).decode()
-                        self.increment_clock()
                         self.handle_command(response, s)
                         
 
@@ -231,7 +231,6 @@ def main(args: list):
         selected_action = inquirer.prompt(choices, theme=BlueComposure())
 
         if selected_action["choice"] == "[1] Listar peers":
-            #main_peer.increment_clock()
             choices = ["[0] voltar para o menu anterior"]
             for index, neighbor in enumerate(main_peer.neighbors, start=1):
                 choice_str = f"[{index}] {neighbor['ip']}:{neighbor['port']} {neighbor['status']}"
@@ -253,18 +252,18 @@ def main(args: list):
                 main_peer.change_neighbor_status(peer["ip"], peer["port"], "ONLINE")
 
         elif selected_action["choice"] == "[2] Obter peers":
+            main_peer.increment_clock()
             original_neighbors = main_peer.neighbors.copy()
             for neighbor in original_neighbors:
                 main_peer.send_command(
                     f"{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS", neighbor["ip"], int(neighbor["port"]),expect_response=True)
-                #main_peer.increment_clock()
+
 
         elif selected_action["choice"] == "[3] Listar arquivos locais":
             main_peer.increment_clock()
             list_local_files(shared_directory)
 
         elif selected_action["choice"] == "[9] Sair":
-            #main_peer.increment_clock()
             for neighbor in main_peer.neighbors:
                 main_peer.send_command(
                     f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE", neighbor["ip"], neighbor["port"])
