@@ -68,6 +68,7 @@ def main(args: list):
         # Verifica se o usuário escolheu a opção de obter peers
         elif selected_action["choice"] == "[2] Obter peers":
             main_peer.increment_clock()
+            print(f"Encaminhando mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS' para {peer['ip']}:{peer['port']}")
             original_neighbors = main_peer.neighbors.copy()
             for neighbor in original_neighbors:
                 main_peer.send_command(
