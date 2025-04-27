@@ -1,6 +1,7 @@
 import socket
 import helpers
 import threading
+import os
 
 MAX_CONNECTIONS = 10
 
@@ -14,6 +15,7 @@ class Peer:
         self.status = status
         self.clock = 0
         self.neighbors = neighbors
+        self.received_files = []
         self.start_server()
 
     def increment_clock(self):
@@ -115,6 +117,36 @@ class Peer:
             print(f"Mensagem recebida '{formated_command}'")
             self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "OFFLINE")
+
+        # Verifica se o comando recebido é do tipo LS
+        elif (splitted_command[2] == "LS"):
+            formated_command = helpers.format_string(command)
+            print(f"Mensagem recebida '{formated_command}'")
+            self.increment_clock()
+            files = helpers.list_local_files(self.shared_directory)
+            files_str = []
+            
+            for file in files:
+                file_size = os.path.getsize(os.path.join(self.shared_directory, file))
+                files_str.append(f"{file}:{file_size}")
+            
+            formated_files = ""
+            for file in files_str:
+                formated_files += f"{file} "
+
+            response = f"{self.ip}:{self.port} {self.clock} LS_LIST {len(files)} {formated_files}\n"
+            formated_response = helpers.format_string(response)
+            print(
+                f"Encaminhando mensagem '{formated_response}' para {sender_ip}:{sender_port}")
+            conn.sendall(response.encode())
+
+        # Verifica se o comando recebido é do tipo LS_LIST
+        elif (splitted_command[2] == "LS_LIST"):
+            formated_command = helpers.format_string(command)
+            print(f"Resposta recebida: '{formated_command}'")
+            self.increment_clock()
+            files = command.split()[4:]
+            self.received_files = files
 
     # Método que envia comandos para outros peers
     def send_command(self, command, ip, port, expect_response=False) -> bool:

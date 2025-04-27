@@ -6,9 +6,8 @@ def list_local_files(directory: str) -> None:
         files = os.listdir(directory)
     except Exception as error:
         print(f"Erro ao ler o diretório {directory}: {error}")
-
-    for file in files:
-        print(f"{file}")
+    
+    return files
 
 # Função que verifica se o diretório existe, se é um diretório e se é acessível
 def verify_files_path(directory: str) -> bool:

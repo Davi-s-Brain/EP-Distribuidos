@@ -37,7 +37,7 @@ def main(args: list):
             "[4] Buscar arquivos",
             "[5] Exibir estatisticas",
             "[6] Alterar tamanho de chunk",
-            "[7] Sair"
+            "[9] Sair"
         ])]
         selected_action = inquirer.prompt(choices, theme=BlueComposure())
 
@@ -77,10 +77,10 @@ def main(args: list):
 
         # Verifica se o usuário escolheu a opção de listar os arquivos locais
         elif selected_action["choice"] == "[3] Listar arquivos locais":
-            helpers.list_local_files(shared_directory)
+            print(helpers.list_local_files(shared_directory))
 
         # Verifica se o usuário escolheu a opção de sair. Em seguida, encaminha a mensagem BYE para todos os vizinhos
-        elif selected_action["choice"] == "[7] Sair":
+        elif selected_action["choice"] == "[9] Sair":
             print("Saindo...")
             for neighbor in main_peer.neighbors:
                 main_peer.increment_clock()
@@ -88,6 +88,28 @@ def main(args: list):
                 main_peer.send_command(
                     f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE\n", neighbor["ip"], int(neighbor["port"]))
             exit(0)
+
+        # Verifica se o usuário escolheu a opção de buscar arquivos
+        elif selected_action["choice"] == "[4] Buscar arquivos":
+            main_peer.increment_clock()
+            for neighbor in main_peer.neighbors:
+                if neighbor["status"] == "ONLINE":
+                    print(f"Encaminhando Mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} LS' para {neighbor['ip']}:{neighbor['port']}")
+                    main_peer.send_command(
+                        f"{main_peer.ip}:{main_peer.port} {main_peer.clock} LS\n", neighbor["ip"], int(neighbor["port"]), expect_response=True)
+            
+            if len(main_peer.received_files) == 0:
+                print("Nenhum arquivo encontrado")
+            else:
+                print(main_peer.received_files)
+                file_choices = ["[0] Voltar para o menu anterior"] + main_peer.received_files
+                selected_file = inquirer.prompt(
+                    [inquirer.List(
+                        "file", message="Selecione um arquivo", choices=file_choices)],
+                    theme=BlueComposure())
+                if selected_file["file"] != "[0] Voltar para o menu anterior":
+                    print(f"Arquivo selecionado: {selected_file['file']}")
+        
 
 
 if __name__ == "__main__":
