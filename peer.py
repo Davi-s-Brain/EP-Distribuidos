@@ -2,6 +2,7 @@ import socket
 import helpers
 import threading
 import os
+import base64
 
 MAX_CONNECTIONS = 10
 
@@ -124,11 +125,12 @@ class Peer:
             print(f"Mensagem recebida '{formated_command}'")
             self.increment_clock()
             files = helpers.list_local_files(self.shared_directory)
-            files_str = []        
-            files_without_ip = [] 
+            files_str = []
+            files_without_ip = []
 
             for file in files:
-                file_size = os.path.getsize(os.path.join(self.shared_directory, file))
+                file_size = os.path.getsize(
+                    os.path.join(self.shared_directory, file))
                 files_str.append(f"{file}:{file_size}:{self.ip}:{self.port}")
                 files_without_ip.append(f"{file}:{file_size}")
 
@@ -155,6 +157,40 @@ class Peer:
                     }
                     self.received_files.append(file_dict)
 
+        # Verifica se o comando recebido é do tipo DL
+        elif (splitted_command[2] == "DL"):
+            formated_command = helpers.format_string(command)
+            print(f"Mensagem recebida '{formated_command}'")
+            self.increment_clock()
+            file_name = splitted_command[3]
+            file_path = os.path.join(self.shared_directory, file_name)
+            if os.path.exists(file_path):
+                with open(file_path, "rb") as file:
+                    data = file.read()
+                    b64_data = base64.b64encode(data).decode()
+                    response = f"{self.ip}:{self.port} {self.clock} FILE {file_name} {b64_data}\n"
+                    conn.sendall(response.encode())
+                    print(f"Enviando arquivo {file_name} para {sender_ip}:{sender_port}")
+            else:
+                print(f"Arquivo {file_name} não encontrado.")
+
+        # Verifica se o comando recebido é do tipo FILE
+        elif (splitted_command[2] == "FILE"):
+            formated_command = helpers.format_string(command)
+            print(f"Mensagem recebida: '{formated_command}'")
+            self.increment_clock()
+            file_name = splitted_command[3]
+
+            try:
+                b64_content = command.strip().split(" ", 4)[-1]
+                file_data = base64.b64decode(b64_content)
+                file_path = os.path.join(self.shared_directory, file_name)
+                with open(file_path, "wb") as f:
+                    f.write(file_data)
+                print("Download finalizado.")
+            except Exception as e:
+                print(f"Erro ao decodificar ou salvar o arquivo: {e}")
+
     # Método que envia comandos para outros peers
     def send_command(self, command, ip, port, expect_response=False) -> bool:
         splitted_command = command.split()
@@ -166,14 +202,17 @@ class Peer:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((ip, port))
                     s.sendall(command.encode())
-
                     if expect_response:
-                        response = s.recv(4096).decode()
+                        response = ""
+                        while True:
+                            part = s.recv(4096).decode()
+                            response += part
+                            if "\n" in part:
+                                break
                         self.handle_command(response, s)
                 return True
             except Exception as e:
-                print(
-                    f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
+                print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
                 return False
 
     # Método que altera o status de um vizinho e o adiciona se não existir

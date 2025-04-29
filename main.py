@@ -108,8 +108,10 @@ def main(args: list):
                 for index, file in enumerate(main_peer.received_files, start=1):
                     print(
                         f"[{index}] {file['name']:<30} | {file['size']:<10} | {file['peer']:<25}")
-                file_choice = input(
-                    "Selecione o arquivo desejado (número): ").strip()
+
+                print("\nDigite o número do arquivo para fazer o download:")
+                file_choice = input("> ").strip()
+
                 if file_choice == "0":
                     continue
                 try:
@@ -117,6 +119,14 @@ def main(args: list):
                     if 1 <= file_choice_int <= len(main_peer.received_files):
                         selected_file = main_peer.received_files[file_choice_int - 1]
                         print(f"Arquivo selecionado: {selected_file['name']}")
+                        target_peer = selected_file['peer']
+                        ip_port = target_peer.split(":")
+                        target_ip = ip_port[0]
+                        target_port = int(ip_port[1])
+                        main_peer.increment_clock()
+                        dl_message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {selected_file['name']} 0 0\n"
+                        print(f"Enviando mensagem: '{dl_message.strip()}' para {target_ip}:{target_port}")
+                        main_peer.send_command(dl_message, target_ip, target_port)
                     else:
                         print("Opção inválida.")
                 except ValueError:
