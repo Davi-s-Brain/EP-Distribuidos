@@ -124,20 +124,19 @@ class Peer:
             print(f"Mensagem recebida '{formated_command}'")
             self.increment_clock()
             files = helpers.list_local_files(self.shared_directory)
-            files_str = []
-            
+            files_str = []        
+            files_without_ip = [] 
+
             for file in files:
                 file_size = os.path.getsize(os.path.join(self.shared_directory, file))
-                files_str.append(f"{file}:{file_size}")
-            
-            formated_files = ""
-            for file in files_str:
-                formated_files += f"{file} "
+                files_str.append(f"{file}:{file_size}:{self.ip}:{self.port}")
+                files_without_ip.append(f"{file}:{file_size}")
 
+            formated_files = " ".join(files_str)
             response = f"{self.ip}:{self.port} {self.clock} LS_LIST {len(files)} {formated_files}\n"
             formated_response = helpers.format_string(response)
             print(
-                f"Encaminhando mensagem '{formated_response}' para {sender_ip}:{sender_port}")
+                f"Encaminhando mensagem {self.ip}:{self.port} {self.clock} LS_LIST {len(files)} { ' '.join(files_without_ip) } para {sender_ip}:{sender_port}")
             conn.sendall(response.encode())
 
         # Verifica se o comando recebido é do tipo LS_LIST
@@ -145,8 +144,16 @@ class Peer:
             formated_command = helpers.format_string(command)
             print(f"Resposta recebida: '{formated_command}'")
             self.increment_clock()
-            files = command.split()[4:]
-            self.received_files = files
+            files_entries = command.split()[4:]
+            for entry in files_entries:
+                parts = entry.split(":")
+                if len(parts) == 4:
+                    file_dict = {
+                        "name": parts[0],
+                        "size": parts[1],
+                        "peer": f"{parts[2]}:{parts[3]}"
+                    }
+                    self.received_files.append(file_dict)
 
     # Método que envia comandos para outros peers
     def send_command(self, command, ip, port, expect_response=False) -> bool:

@@ -1,9 +1,19 @@
 import sys
 import socket
 import helpers
-import inquirer
 from peer import Peer
-from inquirer.themes import BlueComposure
+
+
+# Mostra o menu no terminal
+def print_menu():
+    print("\t\nEscolha um comando:")
+    print("\t[1] Listar peers")
+    print("\t[2] Obter peers")
+    print("\t[3] Listar arquivos locais")
+    print("\t[4] Buscar arquivos")
+    print("\t[5] Exibir estatísticas")
+    print("\t[6] Alterar tamanho de chunk")
+    print("\t[9] Sair")
 
 
 def main(args: list):
@@ -11,13 +21,9 @@ def main(args: list):
     params = args
     peer_ip_and_port = params[0]
     shared_directory = params[2]
-    selected_action = {"choice": ""}
 
     # Verifica se o diretório é válido
-    isPathValid = helpers.verify_files_path(shared_directory)
-
-    # Caso o diretório não seja válido o programa é finalizado
-    if not isPathValid:
+    if not helpers.verify_files_path(shared_directory):
         exit(0)
 
     PEER_IP = socket.gethostbyname(peer_ip_and_port.split(":")[0])
@@ -27,89 +33,108 @@ def main(args: list):
     main_peer = Peer.create_peer(
         ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE")
 
-    # Mostra o menu no terminal
-    while selected_action["choice"] != "[7] Sair":
+    while True:
         send_message = False
-        choices = [inquirer.List("choice", message="Escolha um comando", choices=[
-            "[1] Listar peers",
-            "[2] Obter peers",
-            "[3] Listar arquivos locais",
-            "[4] Buscar arquivos",
-            "[5] Exibir estatisticas",
-            "[6] Alterar tamanho de chunk",
-            "[9] Sair"
-        ])]
-        selected_action = inquirer.prompt(choices, theme=BlueComposure())
+        print_menu()
+        choice = input(">").strip()
 
         # Verifica se o usuário escolheu a opção de listar peers
-        if selected_action["choice"] == "[1] Listar peers":
-            choices = ["[0] voltar para o menu anterior"]
+        if choice == "1":
+            if not main_peer.neighbors:
+                print("Nenhum peer disponível.")
+                continue
+            print("\nLista de peers:")
+            print("[0] Voltar para o menu anterior")
             for index, neighbor in enumerate(main_peer.neighbors, start=1):
-                choice_str = f"[{index}] {neighbor['ip']}:{neighbor['port']} {neighbor['status']}"
-                choices.append(choice_str)
-
-            choice_peer = [inquirer.List(
-                "choice_peers", message="Lista de peers", choices=choices)]
-            selected_peer = inquirer.prompt(choice_peer, theme=BlueComposure())
-
-            for choice in choices:
-                if selected_peer["choice_peers"] == "[0] voltar para o menu anterior":
-                    break
-                if selected_peer["choice_peers"] == choice:
-                    peer = main_peer.neighbors[choices.index(choice) - 1]
+                print(
+                    f"[{index}] {neighbor['ip']}:{neighbor['port']} {neighbor['status']}")
+            sub_choice = input(">").strip()
+            if sub_choice == "0":
+                continue
+            try:
+                sub_choice_int = int(sub_choice)
+                if 1 <= sub_choice_int <= len(main_peer.neighbors):
+                    peer = main_peer.neighbors[sub_choice_int - 1]
                     main_peer.increment_clock()
-                    print(f"Encaminhando mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO' para {peer['ip']}:{peer['port']}")
+                    message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n"
+                    print(
+                        f"Encaminhando mensagem '{message.strip()}' para {peer['ip']}:{peer['port']}")
                     send_message = main_peer.send_command(
-                        f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n", peer["ip"], int(peer["port"]))
-
-            if send_message:
-                main_peer.change_neighbor_status(peer["ip"], peer["port"], "ONLINE")
+                        message, peer["ip"], int(peer["port"]))
+                    if send_message:
+                        main_peer.change_neighbor_status(
+                            peer["ip"], peer["port"], "ONLINE")
+                else:
+                    print("Opção inválida.")
+            except ValueError:
+                print("Entrada inválida. Por favor, digite um número.")
 
         # Verifica se o usuário escolheu a opção de obter peers
-        elif selected_action["choice"] == "[2] Obter peers":
+        elif choice == "2":
             main_peer.increment_clock()
             original_neighbors = main_peer.neighbors.copy()
             for neighbor in original_neighbors:
+                message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS\n"
                 print(
-                    f"Encaminhando mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS' para {neighbor['ip']}:{neighbor['port']}")
-                main_peer.send_command(
-                    f"{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS\n", neighbor["ip"], int(neighbor["port"]),expect_response=True)
+                    f"Encaminhando mensagem '{message.strip()}' para {neighbor['ip']}:{neighbor['port']}")
+                main_peer.send_command(message, neighbor["ip"], int(
+                    neighbor["port"]), expect_response=True)
 
         # Verifica se o usuário escolheu a opção de listar os arquivos locais
-        elif selected_action["choice"] == "[3] Listar arquivos locais":
-            print(helpers.list_local_files(shared_directory))
-
-        # Verifica se o usuário escolheu a opção de sair. Em seguida, encaminha a mensagem BYE para todos os vizinhos
-        elif selected_action["choice"] == "[9] Sair":
-            print("Saindo...")
-            for neighbor in main_peer.neighbors:
-                main_peer.increment_clock()
-                print(f"Encaminhando Mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE' para {neighbor['ip']}:{neighbor['port']}")
-                main_peer.send_command(
-                    f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE\n", neighbor["ip"], int(neighbor["port"]))
-            exit(0)
+        elif choice == "3":
+            arquivos = helpers.list_local_files(shared_directory)
+            for arquivo in arquivos:
+                print(arquivo)
 
         # Verifica se o usuário escolheu a opção de buscar arquivos
-        elif selected_action["choice"] == "[4] Buscar arquivos":
+        elif choice == "4":
             main_peer.increment_clock()
+            # Envia a solicitação para todos os pares online
             for neighbor in main_peer.neighbors:
                 if neighbor["status"] == "ONLINE":
-                    print(f"Encaminhando Mensagem '{main_peer.ip}:{main_peer.port} {main_peer.clock} LS' para {neighbor['ip']}:{neighbor['port']}")
-                    main_peer.send_command(
-                        f"{main_peer.ip}:{main_peer.port} {main_peer.clock} LS\n", neighbor["ip"], int(neighbor["port"]), expect_response=True)
-            
+                    message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} LS\n"
+                    print(
+                        f"Encaminhando mensagem '{message.strip()}' para {neighbor['ip']}:{neighbor['port']}")
+                    main_peer.send_command(message, neighbor["ip"], int(
+                        neighbor["port"]), expect_response=True)
+
+            # Espera que os arquivos sejam recebidos em main_peer.received_files,
             if len(main_peer.received_files) == 0:
                 print("Nenhum arquivo encontrado")
             else:
-                print(main_peer.received_files)
-                file_choices = ["[0] Voltar para o menu anterior"] + main_peer.received_files
-                selected_file = inquirer.prompt(
-                    [inquirer.List(
-                        "file", message="Selecione um arquivo", choices=file_choices)],
-                    theme=BlueComposure())
-                if selected_file["file"] != "[0] Voltar para o menu anterior":
-                    print(f"Arquivo selecionado: {selected_file['file']}")
-        
+                print("\nArquivos encontrados na rede:")
+                print(f"{'Index':<8}{'Nome':<26} | {'Tamanho':<10} | {'Peer':<20}")
+                print(f"[0] {'<Cancelar>':<30}")
+                for index, file in enumerate(main_peer.received_files, start=1):
+                    print(
+                        f"[{index}] {file['name']:<30} | {file['size']:<10} | {file['peer']:<25}")
+                file_choice = input(
+                    "Selecione o arquivo desejado (número): ").strip()
+                if file_choice == "0":
+                    continue
+                try:
+                    file_choice_int = int(file_choice)
+                    if 1 <= file_choice_int <= len(main_peer.received_files):
+                        selected_file = main_peer.received_files[file_choice_int - 1]
+                        print(f"Arquivo selecionado: {selected_file['name']}")
+                    else:
+                        print("Opção inválida.")
+                except ValueError:
+                    print("Entrada inválida. Por favor, digite um número.")
+
+        # Verifica se o usuário escolheu a opção de sair. Em seguida, encaminha a mensagem BYE para todos os vizinhos
+        elif choice == "9":
+            print("Saindo...")
+            for neighbor in main_peer.neighbors:
+                main_peer.increment_clock()
+                message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} BYE\n"
+                print(
+                    f"Encaminhando mensagem '{message.strip()}' para {neighbor['ip']}:{neighbor['port']}")
+                main_peer.send_command(
+                    message, neighbor["ip"], int(neighbor["port"]))
+            exit(0)
+        else:
+            print("Opção inválida. Tente novamente.")
 
 
 if __name__ == "__main__":
