@@ -168,9 +168,10 @@ class Peer:
                 with open(file_path, "rb") as file:
                     data = file.read()
                     b64_data = base64.b64encode(data).decode()
-                    response = f"{self.ip}:{self.port} {self.clock} FILE {file_name} {b64_data}\n"
-                    conn.sendall(response.encode())
-                    print(f"Enviando arquivo {file_name} para {sender_ip}:{sender_port}")
+                response = f"{self.ip}:{self.port} {self.clock} FILE {file_name} {b64_data}\n"
+                conn.sendall(response.encode())
+                print(
+                    f"Enviando arquivo {file_name} para {sender_ip}:{sender_port}")
             else:
                 print(f"Arquivo {file_name} não encontrado.")
 
@@ -212,7 +213,8 @@ class Peer:
                         self.handle_command(response, s)
                 return True
             except Exception as e:
-                print(f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
+                print(
+                    f"[Erro] Não foi possível conectar com {ip}:{port} - {e}")
                 return False
 
     # Método que altera o status de um vizinho e o adiciona se não existir

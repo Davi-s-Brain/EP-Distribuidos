@@ -125,8 +125,10 @@ def main(args: list):
                         target_port = int(ip_port[1])
                         main_peer.increment_clock()
                         dl_message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {selected_file['name']} 0 0\n"
-                        print(f"Enviando mensagem: '{dl_message.strip()}' para {target_ip}:{target_port}")
-                        main_peer.send_command(dl_message, target_ip, target_port)
+                        print(
+                            f"Enviando mensagem: '{dl_message.strip()}' para {target_ip}:{target_port}")
+                        main_peer.send_command(
+                            dl_message, target_ip, target_port, expect_response=True)
                     else:
                         print("Opção inválida.")
                 except ValueError:
