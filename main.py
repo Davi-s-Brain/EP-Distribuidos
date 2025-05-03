@@ -63,7 +63,7 @@ def main(args: list):
                         message, peer["ip"], int(peer["port"]))
                     if send_message:
                         main_peer.change_neighbor_status(
-                            peer["ip"], peer["port"], "ONLINE")
+                            peer["ip"], peer["port"], "ONLINE", peer['clock'])
                 else:
                     print("Opção inválida.")
             except ValueError:

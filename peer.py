@@ -37,7 +37,7 @@ class Peer:
             formated_ip, formated_port = formated_neighbor.split(":")
 
             new_neighbor = {"ip": formated_ip,
-                            "port": formated_port, "status": "OFFLINE"}
+                            "port": formated_port, "status": "OFFLINE", "clock": 0}
 
             neighbors.append(new_neighbor)
 
@@ -72,15 +72,27 @@ class Peer:
     def handle_command(self, command, conn):
         splitted_command = command.split()
 
+        sender_clock = int(splitted_command[1])
         sender_ip = splitted_command[0].split(":")[0]
         sender_port = splitted_command[0].split(":")[1]
+
+        #Atualizando clock segundo modelo de Lamport
+        if sender_clock > self.clock:
+            self.clock = sender_clock
+            print(f"=> Atualizando relogio para {self.clock}")
+
+        for neighbor in self.neighbors:
+            if(neighbor['ip'] == sender_ip and neighbor['port'] == sender_port):
+                neighbor['clock'] = int(neighbor['clock'])
+                if neighbor['clock'] < sender_clock:
+                    neighbor['clock'] = sender_clock
 
         # Verifica se o comando recebido é do tipo HELLO
         if (splitted_command[2] == "HELLO"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida: '{formated_command}'")
             self.increment_clock()
-            self.change_neighbor_status(sender_ip, sender_port, "ONLINE")
+            self.change_neighbor_status(sender_ip, sender_port, "ONLINE", sender_clock)
 
         # Verifica se o comando recebido é do tipo GET_PEERS
         elif (splitted_command[2] == "GET_PEERS"):
@@ -91,7 +103,7 @@ class Peer:
             for neighbor in self.neighbors:
                 if (neighbor['port'] != sender_port):
                     vizinhos.append(
-                        f"{neighbor['ip']}:{neighbor['port']}:{neighbor['status']}:0")
+                        f"{neighbor['ip']}:{neighbor['port']}:{neighbor['status']}:{neighbor['clock']}")
             peers_str = " ".join(vizinhos)
 
             self.increment_clock()
@@ -109,15 +121,20 @@ class Peer:
             recieved_neighbors = command.split()[4:]
             for neighbor in recieved_neighbors:
                 neighbor_info = neighbor.split(":")
-                self.change_neighbor_status(
-                    neighbor_info[0], neighbor_info[1], neighbor_info[2])
+                for self_neigh in self.neighbors:
+                    if(neighbor_info[0] == self_neigh['ip'] and neighbor_info[1] == self_neigh['port'] and neighbor_info[3] < self_neigh['clock']):
+                        pass
+                    else:    
+                        self.change_neighbor_status(
+                            neighbor_info[0], neighbor_info[1], neighbor_info[2], neighbor_info[3])
+                
 
         # Verifica se o comando recebido é do tipo BYE
         elif (splitted_command[2] == "BYE"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida '{formated_command}'")
             self.increment_clock()
-            self.change_neighbor_status(sender_ip, sender_port, "OFFLINE")
+            self.change_neighbor_status(sender_ip, sender_port, "OFFLINE", sender_clock)
 
         # Verifica se o comando recebido é do tipo LS
         elif (splitted_command[2] == "LS"):
@@ -218,17 +235,19 @@ class Peer:
                 return False
 
     # Método que altera o status de um vizinho e o adiciona se não existir
-    def change_neighbor_status(self, ip, port, status):
+    def change_neighbor_status(self, ip, port, status, clock):
         for neighbor in self.neighbors:
             if (neighbor["ip"] == ip and neighbor["port"] == port):
                 neighbor["status"] = status
+                neighbor["clock"] = clock
                 print(f"Atualizando peer {ip}:{port} status {status}")
                 return
 
         neighbor_obj = {
             "ip": ip,
             "port": port,
-            "status": status
+            "status": status,
+            "clock": clock
         }
         self.neighbors.append(neighbor_obj)
         print(f"Adicionando novo peer {ip}:{port} status {status}")
