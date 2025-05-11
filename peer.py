@@ -96,7 +96,8 @@ class Peer:
             print(f"Mensagem recebida: '{formated_command}'")
             if sender_clock > self.clock:
                 self.clock = sender_clock
-                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+                print(f"=> Atualizando relogio para {self.clock}")    
+                self.increment_clock()
             else:
                 self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "ONLINE", sender_clock)
@@ -107,7 +108,8 @@ class Peer:
             print(f"Resposta recebida: '{formated_command}'")
             if sender_clock > self.clock:
                 self.clock = sender_clock
-                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+                print(f"=> Atualizando relogio para {self.clock}")  
+                self.increment_clock()  
             else:
                 self.increment_clock()
             vizinhos = []
@@ -130,7 +132,8 @@ class Peer:
             print(f"Resposta recebida: '{formated_command}'")
             if sender_clock > self.clock:
                 self.clock = sender_clock
-                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+                print(f"=> Atualizando relogio para {self.clock}")  
+                self.increment_clock()  
             else:
                 self.increment_clock()
             recieved_neighbors = command.split()[4:]
@@ -150,7 +153,8 @@ class Peer:
             print(f"Mensagem recebida '{formated_command}'")
             if sender_clock > self.clock:
                 self.clock = sender_clock
-                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+                print(f"=> Atualizando relogio para {self.clock}") 
+                self.increment_clock()   
             else:
                 self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "OFFLINE", sender_clock)
@@ -161,7 +165,8 @@ class Peer:
             print(f"Mensagem recebida '{formated_command}'")
             if sender_clock > self.clock:
                 self.clock = sender_clock
-                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+                print(f"=> Atualizando relogio para {self.clock}")    
+                self.increment_clock()
             else:
                 self.increment_clock()
             files = helpers.list_local_files(self.shared_directory)
@@ -187,7 +192,8 @@ class Peer:
             print(f"Resposta recebida: '{formated_command}'")
             if sender_clock > self.clock:
                 self.clock = sender_clock
-                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+                print(f"=> Atualizando relogio para {self.clock}")    
+                self.increment_clock()
             else:
                 self.increment_clock()
             files_entries = command.split()[4:]
@@ -207,7 +213,8 @@ class Peer:
             print(f"Mensagem recebida '{formated_command}'")
             if sender_clock > self.clock:
                 self.clock = sender_clock
-                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+                print(f"=> Atualizando relogio para {self.clock}")  
+                self.increment_clock()  
             else:
                 self.increment_clock()
             file_name = splitted_command[3]
@@ -229,7 +236,8 @@ class Peer:
             print(f"Mensagem recebida: '{formated_command}'")
             if sender_clock > self.clock:
                 self.clock = sender_clock
-                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+                print(f"=> Atualizando relogio para {self.clock}")   
+                self.increment_clock() 
             else:
                 self.increment_clock()
             file_name = splitted_command[3]
