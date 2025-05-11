@@ -68,6 +68,11 @@ class Peer:
 
         threading.Thread(target=server_thread, daemon=True).start()
 
+    def lamport_verify(self ,sender_clock):
+        if sender_clock > self.clock:
+            self.clock = sender_clock
+            print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+
     # Método para lidar com os comandos recebidos
     def handle_command(self, command, conn):
         splitted_command = command.split()
@@ -77,9 +82,7 @@ class Peer:
         sender_port = splitted_command[0].split(":")[1]
 
         #Atualizando clock segundo modelo de Lamport
-        if sender_clock > self.clock:
-            self.clock = sender_clock
-            print(f"=> Atualizando relogio para {self.clock}")
+        
 
         for neighbor in self.neighbors:
             if(neighbor['ip'] == sender_ip and neighbor['port'] == sender_port):
@@ -91,14 +94,22 @@ class Peer:
         if (splitted_command[2] == "HELLO"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida: '{formated_command}'")
-            self.increment_clock()
+            if sender_clock > self.clock:
+                self.clock = sender_clock
+                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+            else:
+                self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "ONLINE", sender_clock)
 
         # Verifica se o comando recebido é do tipo GET_PEERS
         elif (splitted_command[2] == "GET_PEERS"):
             formated_command = helpers.format_string(command)
             print(f"Resposta recebida: '{formated_command}'")
-            self.increment_clock()
+            if sender_clock > self.clock:
+                self.clock = sender_clock
+                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+            else:
+                self.increment_clock()
             vizinhos = []
             for neighbor in self.neighbors:
                 if (neighbor['port'] != sender_port):
@@ -117,7 +128,11 @@ class Peer:
         elif (splitted_command[2] == "PEER_LIST"):
             formated_command = helpers.format_string(command)
             print(f"Resposta recebida: '{formated_command}'")
-            self.increment_clock()
+            if sender_clock > self.clock:
+                self.clock = sender_clock
+                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+            else:
+                self.increment_clock()
             recieved_neighbors = command.split()[4:]
             for neighbor in recieved_neighbors:
                 neighbor_info = neighbor.split(":")
@@ -133,14 +148,22 @@ class Peer:
         elif (splitted_command[2] == "BYE"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida '{formated_command}'")
-            self.increment_clock()
+            if sender_clock > self.clock:
+                self.clock = sender_clock
+                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+            else:
+                self.increment_clock()
             self.change_neighbor_status(sender_ip, sender_port, "OFFLINE", sender_clock)
 
         # Verifica se o comando recebido é do tipo LS
         elif (splitted_command[2] == "LS"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida '{formated_command}'")
-            self.increment_clock()
+            if sender_clock > self.clock:
+                self.clock = sender_clock
+                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+            else:
+                self.increment_clock()
             files = helpers.list_local_files(self.shared_directory)
             files_str = []
             files_without_ip = []
@@ -162,7 +185,11 @@ class Peer:
         elif (splitted_command[2] == "LS_LIST"):
             formated_command = helpers.format_string(command)
             print(f"Resposta recebida: '{formated_command}'")
-            self.increment_clock()
+            if sender_clock > self.clock:
+                self.clock = sender_clock
+                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+            else:
+                self.increment_clock()
             files_entries = command.split()[4:]
             for entry in files_entries:
                 parts = entry.split(":")
@@ -178,7 +205,11 @@ class Peer:
         elif (splitted_command[2] == "DL"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida '{formated_command}'")
-            self.increment_clock()
+            if sender_clock > self.clock:
+                self.clock = sender_clock
+                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+            else:
+                self.increment_clock()
             file_name = splitted_command[3]
             file_path = os.path.join(self.shared_directory, file_name)
             if os.path.exists(file_path):
@@ -196,7 +227,11 @@ class Peer:
         elif (splitted_command[2] == "FILE"):
             formated_command = helpers.format_string(command)
             print(f"Mensagem recebida: '{formated_command}'")
-            self.increment_clock()
+            if sender_clock > self.clock:
+                self.clock = sender_clock
+                print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")    
+            else:
+                self.increment_clock()
             file_name = splitted_command[3]
 
             try:

@@ -47,7 +47,7 @@ def main(args: list):
             print("[0] Voltar para o menu anterior")
             for index, neighbor in enumerate(main_peer.neighbors, start=1):
                 print(
-                    f"[{index}] {neighbor['ip']}:{neighbor['port']} {neighbor['status']}")
+                    f"[{index}] {neighbor['ip']}:{neighbor['port']} {neighbor['status']} (clock: {neighbor['clock']})")
             sub_choice = input(">").strip()
             if sub_choice == "0":
                 continue
@@ -71,9 +71,10 @@ def main(args: list):
 
         # Verifica se o usuário escolheu a opção de obter peers
         elif choice == "2":
-            main_peer.increment_clock()
+            ##--main_peer.increment_clock()
             original_neighbors = main_peer.neighbors.copy()
             for neighbor in original_neighbors:
+                main_peer.increment_clock()
                 message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} GET_PEERS\n"
                 print(
                     f"Encaminhando mensagem '{message.strip()}' para {neighbor['ip']}:{neighbor['port']}")
@@ -88,10 +89,11 @@ def main(args: list):
 
         # Verifica se o usuário escolheu a opção de buscar arquivos
         elif choice == "4":
-            main_peer.increment_clock()
+            ##--main_peer.increment_clock()
             # Envia a solicitação para todos os pares online
             for neighbor in main_peer.neighbors:
                 if neighbor["status"] == "ONLINE":
+                    main_peer.increment_clock()
                     message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} LS\n"
                     print(
                         f"Encaminhando mensagem '{message.strip()}' para {neighbor['ip']}:{neighbor['port']}")
