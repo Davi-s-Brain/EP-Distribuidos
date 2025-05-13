@@ -31,7 +31,7 @@ def main(args: list):
 
     # Cria o peer principal
     main_peer = Peer.create_peer(
-        ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE")
+        ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE", neighbors_file=params[1])
 
     while True:
         send_message = False

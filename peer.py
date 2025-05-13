@@ -23,28 +23,31 @@ class Peer:
         self.clock += 1
         print(f" => Atualizando relogio para {self.clock}")
 
-    # Método de classe para criar um peer
+    # Método de classe para criar um peer usando o arquivo de vizinhos fornecido
     @classmethod
-    def create_peer(cls, ip, port, shared_directory, status):
+    def create_peer(cls, ip, port, shared_directory, status, neighbors_file):
         neighbors = []
-        last_port_digit = port[-1]
+        try:
+            with open(neighbors_file, "r") as file_vizinhos:
+                neighbors_lines = file_vizinhos.readlines()
+            for line in neighbors_lines:
+                line = line.strip()
+                if line:
+                    neigh_ip, neigh_port = line.split(":")
+                    new_neighbor = {
+                        "ip": neigh_ip,
+                        "port": neigh_port,
+                        "status": "OFFLINE",
+                        "clock": 0
+                    }
+                    neighbors.append(new_neighbor)
 
-        with open(f"./vizinhos/v{last_port_digit}_vizinhos.txt") as file_vizinhos:
-            neighbors_file = file_vizinhos.readlines()
-
-        for neighbor in neighbors_file:
-            formated_neighbor = neighbor.replace("\n", "")
-            formated_ip, formated_port = formated_neighbor.split(":")
-
-            new_neighbor = {"ip": formated_ip,
-                            "port": formated_port, "status": "OFFLINE", "clock": 0}
-
-            neighbors.append(new_neighbor)
+        except Exception as e:
+            print(f"[Erro] Não foi possível ler o arquivo de vizinhos {neighbors_file}: {e}")
+            exit(0)
 
         for neighbor in neighbors:
-            print(
-                f"Adicionando novo peer {neighbor['ip']}:{neighbor['port']} status OFFLINE")
-
+            print(f"Adicionando novo peer {neighbor['ip']}:{neighbor['port']} status OFFLINE")
         return cls(ip, port, shared_directory, status, neighbors)
 
     # Método para iniciar o servidor que escuta por conexões de outros peers
