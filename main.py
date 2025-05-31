@@ -21,6 +21,7 @@ def main(args: list):
     params = args
     peer_ip_and_port = params[0]
     shared_directory = params[2]
+    chunck_size = 256
 
     # Verifica se o diretório é válido
     if not helpers.verify_files_path(shared_directory):
@@ -31,12 +32,13 @@ def main(args: list):
 
     # Cria o peer principal
     main_peer = Peer.create_peer(
-        ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE", neighbors_file=params[1])
+        ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE", neighbors_file=params[1], chunck_size=256)
 
     while True:
         send_message = False
         print_menu()
         choice = input(">").strip()
+        chunck_size = chunck_size
 
         # Verifica se o usuário escolheu a opção de listar peers
         if choice == "1":
@@ -135,6 +137,20 @@ def main(args: list):
                         print("Opção inválida.")
                 except ValueError:
                     print("Entrada inválida. Por favor, digite um número.")
+
+        # Verifica se o usuário escolheu a opção de alterar o tamanho do chunk
+        elif choice == "6":
+            try:
+                print("Digite novo tamanho de chunk:")
+                new_chunk_size = int(input("> ").strip())
+                if new_chunk_size <= 0:
+                    print("Tamanho do chunk deve ser um número positivo.")
+                else:
+                    main_peer.chunck_size = new_chunk_size
+                    print(f"Tamanho de chunk alterado: {new_chunk_size}")
+            except ValueError:
+                print("Entrada inválida. Por favor, digite um número válido.")
+
 
         # Verifica se o usuário escolheu a opção de sair. Em seguida, encaminha a mensagem BYE para todos os vizinhos
         elif choice == "9":

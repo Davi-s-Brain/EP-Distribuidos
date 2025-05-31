@@ -9,13 +9,14 @@ MAX_CONNECTIONS = 10
 
 # Classe que representa um peer
 class Peer:
-    def __init__(self, ip, port, shared_directory, status, neighbors):
+    def __init__(self, ip, port, shared_directory, status, neighbors, chunck_size):
         self.ip = ip
         self.port = port
         self.shared_directory = shared_directory
         self.status = status
         self.clock = 0
         self.neighbors = neighbors
+        self.chunck_size = chunck_size
         self.received_files = []
         self.start_server()
 
@@ -25,7 +26,7 @@ class Peer:
 
     # Método de classe para criar um peer usando o arquivo de vizinhos fornecido
     @classmethod
-    def create_peer(cls, ip, port, shared_directory, status, neighbors_file):
+    def create_peer(cls, ip, port, shared_directory, status, neighbors_file, chunck_size):
         neighbors = []
         try:
             with open(neighbors_file, "r") as file_vizinhos:
@@ -48,7 +49,7 @@ class Peer:
 
         for neighbor in neighbors:
             print(f"Adicionando novo peer {neighbor['ip']}:{neighbor['port']} status OFFLINE")
-        return cls(ip, port, shared_directory, status, neighbors)
+        return cls(ip, port, shared_directory, status, neighbors, chunck_size)
 
     # Método para iniciar o servidor que escuta por conexões de outros peers
     def start_server(self):
