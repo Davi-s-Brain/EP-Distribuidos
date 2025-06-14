@@ -209,7 +209,13 @@ class Peer:
                         "size": parts[1],
                         "peer": f"{parts[2]}:{parts[3]}"
                     }
-                    self.received_files.append(file_dict)
+                    exists = False
+                    for existing_file in self.received_files:
+                        if existing_file["name"] == file_dict["name"] and existing_file["peer"] == file_dict["peer"]:
+                            exists = True
+                            break
+                    if not exists:
+                        self.received_files.append(file_dict)
 
         # Verifica se o comando recebido é do tipo DL
         elif (splitted_command[2] == "DL"):
