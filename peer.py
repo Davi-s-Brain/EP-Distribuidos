@@ -18,6 +18,7 @@ class Peer:
         self.neighbors = neighbors
         self.chunck_size = chunck_size
         self.received_files = []
+        self.received_chunks = {}
         self.start_server()
 
     def increment_clock(self):
@@ -209,13 +210,19 @@ class Peer:
                         "size": parts[1],
                         "peer": f"{parts[2]}:{parts[3]}"
                     }
-                    exists = False
+
+                    grouped = False
                     for existing_file in self.received_files:
-                        if existing_file["name"] == file_dict["name"] and existing_file["peer"] == file_dict["peer"]:
-                            exists = True
+                        if existing_file["name"] == file_dict["name"] and existing_file["size"] == file_dict["size"]:
+                            existing_file["peer"] += f", {file_dict['peer']}"
+                            grouped = True
                             break
-                    if not exists:
-                        self.received_files.append(file_dict)
+                    if not grouped:
+                        self.received_files.append({
+                            "name": file_dict["name"],
+                            "size": file_dict["size"],
+                            "peer": file_dict["peer"]
+                        })
 
         # Verifica se o comando recebido é do tipo DL
         elif (splitted_command[2] == "DL"):
@@ -228,15 +235,18 @@ class Peer:
             else:
                 self.increment_clock()
             file_name = splitted_command[3]
+            chunk_size = int(splitted_command[4])
+            chunk_index = int(splitted_command[5])
             file_path = os.path.join(self.shared_directory, file_name)
             if os.path.exists(file_path):
                 with open(file_path, "rb") as file:
-                    data = file.read()
+                    file.seek(chunk_index * chunk_size)
+                    data = file.read(chunk_size)
                     b64_data = base64.b64encode(data).decode()
-                response = f"{self.ip}:{self.port} {self.clock} FILE {file_name} {b64_data}\n"
+                response = f"{self.ip}:{self.port} {self.clock} FILE {file_name} {chunk_size} {chunk_index} {b64_data}\n"
                 conn.sendall(response.encode())
                 print(
-                    f"Enviando arquivo {file_name} para {sender_ip}:{sender_port}")
+                    f"Enviando chunk {chunk_index} do arquivo {file_name} para {sender_ip}:{sender_port}")
             else:
                 print(f"Arquivo {file_name} não encontrado.")
 
@@ -251,16 +261,15 @@ class Peer:
             else:
                 self.increment_clock()
             file_name = splitted_command[3]
+            chunk_size = int(splitted_command[4])
+            chunk_index = int(splitted_command[5])
 
             try:
-                b64_content = command.strip().split(" ", 4)[-1]
-                file_data = base64.b64decode(b64_content)
-                file_path = os.path.join(self.shared_directory, file_name)
-                with open(file_path, "wb") as f:
-                    f.write(file_data)
-                print("Download finalizado.")
+                b64_data = command.split(" ", 6)[-1].strip()
+                file_data = base64.b64decode(b64_data)
+                self.store_chunk_data(file_name, chunk_index, file_data)
             except Exception as e:
-                print(f"Erro ao decodificar ou salvar o arquivo: {e}")
+                print(f"Erro ao decodificar chunk: {e}")
 
     # Método que envia comandos para outros peers
     def send_command(self, command, ip, port, expect_response=False) -> bool:
@@ -304,3 +313,11 @@ class Peer:
         }
         self.neighbors.append(neighbor_obj)
         print(f"Adicionando novo peer {ip}:{port} status {status}")
+
+    def get_chunk_data(self, filename, chunk_index):
+        key = f"{filename}_{chunk_index}"
+        return self.received_chunks.get(key)
+
+    def store_chunk_data(self, filename, chunk_index, data):
+        key = f"{filename}_{chunk_index}"
+        self.received_chunks[key] = data

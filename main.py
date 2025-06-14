@@ -1,6 +1,7 @@
 import sys
 import socket
 import helpers
+import os
 from peer import Peer
 
 
@@ -73,7 +74,6 @@ def main(args: list):
 
         # Verifica se o usuário escolheu a opção de obter peers
         elif choice == "2":
-            ##--main_peer.increment_clock()
             original_neighbors = main_peer.neighbors.copy()
             for neighbor in original_neighbors:
                 main_peer.increment_clock()
@@ -91,7 +91,6 @@ def main(args: list):
 
         # Verifica se o usuário escolheu a opção de buscar arquivos
         elif choice == "4":
-            ##--main_peer.increment_clock()
             # Envia a solicitação para todos os pares online
             for neighbor in main_peer.neighbors:
                 if neighbor["status"] == "ONLINE":
@@ -102,16 +101,26 @@ def main(args: list):
                     main_peer.send_command(message, neighbor["ip"], int(
                         neighbor["port"]), expect_response=True)
 
-            # Espera que os arquivos sejam recebidos em main_peer.received_files,
-            if len(main_peer.received_files) == 0:
-                print("Nenhum arquivo encontrado")
+            # Agrupa arquivos iguais (mesmo nome e tamanho)
+            grouped_files = {}
+            for file in main_peer.received_files:
+                key = (file["name"], file["size"])
+                if key not in grouped_files:
+                    grouped_files[key] = {"peers": [file["peer"]]}
+                else:
+                    grouped_files[key]["peers"].append(file["peer"])
+
+            if not grouped_files:
+                print("Nenhum arquivo encontrado.")
             else:
                 print("\nArquivos encontrados na rede:")
-                print(f"{'Index':<8}{'Nome':<26} | {'Tamanho':<10} | {'Peer':<20}")
+                print(f"{'Index':<8}{'Nome':<26} | {'Tamanho':<10} | {'Peers':<20}")
                 print(f"[0] {'<Cancelar>':<30}")
-                for index, file in enumerate(main_peer.received_files, start=1):
+                for index, (key, value) in enumerate(grouped_files.items(), start=1):
+                    name, size = key
+                    peers = ", ".join(value["peers"])
                     print(
-                        f"[{index}] {file['name']:<30} | {file['size']:<10} | {file['peer']:<25}")
+                        f"[{index}] {name:<30} | {size:<10} | {peers:<25}")
 
                 print("\nDigite o número do arquivo para fazer o download:")
                 file_choice = input("> ").strip()
@@ -120,21 +129,83 @@ def main(args: list):
                     continue
                 try:
                     file_choice_int = int(file_choice)
-                    if 1 <= file_choice_int <= len(main_peer.received_files):
-                        selected_file = main_peer.received_files[file_choice_int - 1]
-                        print(f"Arquivo selecionado: {selected_file['name']}")
-                        target_peer = selected_file['peer']
-                        ip_port = target_peer.split(":")
-                        target_ip = ip_port[0]
-                        target_port = int(ip_port[1])
-                        main_peer.increment_clock()
-                        dl_message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {selected_file['name']} 0 0\n"
-                        print(
-                            f"Enviando mensagem: '{dl_message.strip()}' para {target_ip}:{target_port}")
-                        main_peer.send_command(
-                            dl_message, target_ip, target_port, expect_response=True)
-                    else:
+                    
+                    # Move a validação do índice para antes de qualquer processamento
+                    if not (1 <= file_choice_int <= len(grouped_files)):
                         print("Opção inválida.")
+                        continue
+
+                    # Se chegou aqui, o índice é válido
+                    selected_key = list(grouped_files.keys())[file_choice_int - 1]
+                    selected_file_name, selected_file_size = selected_key
+                    selected_peers = grouped_files[selected_key]["peers"]
+
+                    print(f"Arquivo selecionado: {selected_file_name}")
+                    
+                    # Calcula o número total de chunks
+                    total_chunks = (int(selected_file_size) + main_peer.chunck_size - 1) // main_peer.chunck_size
+                    
+                    try:
+                        # Primeiro cria um arquivo vazio no diretório compartilhado
+                        file_path = os.path.join(shared_directory, selected_file_name)
+                        with open(file_path, "wb") as f:
+                            pass
+                            
+                        # Prepara a lista de peers disponíveis
+                        available_peers = []
+                        for peer in selected_peers:
+                            for p in peer.split(','):
+                                p = p.strip()
+                                if p:
+                                    ip, port = p.split(':')
+                                    available_peers.append((ip, int(port)))
+                        
+                        # Calcula o número total de chunks e distribui entre os peers
+                        total_chunks = (int(selected_file_size) + main_peer.chunck_size - 1) // main_peer.chunck_size
+                        chunks_per_peer = total_chunks // len(available_peers)
+                        remaining_chunks = total_chunks % len(available_peers)
+                        
+                        # Faz o download dos chunks
+                        chunks_downloaded = 0
+                        current_chunk = 0
+                        
+                        while chunks_downloaded < total_chunks:
+                            for peer_index, (peer_ip, peer_port) in enumerate(available_peers):
+                                # Calcula o intervalo de chunks para este peer
+                                start_chunk = current_chunk
+                                end_chunk = min(current_chunk + chunks_per_peer + (1 if peer_index < remaining_chunks else 0), total_chunks)
+                                
+                                # Faz o download dos chunks deste peer
+                                for chunk_index in range(start_chunk, end_chunk):
+                                    if not main_peer.get_chunk_data(selected_file_name, chunk_index):
+                                        main_peer.increment_clock()
+                                        dl_message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {selected_file_name} {main_peer.chunck_size} {chunk_index}\n"
+                                        print(f"Encaminhando mensagem: '{dl_message.strip()}' para {peer_ip}:{peer_port}")
+                                        main_peer.send_command(dl_message, peer_ip, peer_port, expect_response=True)
+                                        chunks_downloaded += 1
+                                
+                                current_chunk = end_chunk
+                                if current_chunk >= total_chunks:
+                                    break
+                            
+                            if current_chunk < total_chunks:
+                                current_chunk = 0  # Começa novamente do primeiro chunk se não tiver mais chunks para baixar
+                        
+                        # Escreve os chunks baixados no arquivo em ordem
+                        with open(file_path, "wb") as f:
+                            for chunk_index in range(total_chunks):
+                                chunk_data = main_peer.get_chunk_data(selected_file_name, chunk_index)
+                                if chunk_data:
+                                    f.write(chunk_data)
+
+                        print(f"Download do arquivo {selected_file_name} finalizado.")
+                        # Limpa a lista de arquivos recebidos e chunks recebidos
+                        main_peer.received_chunks = {}
+                        
+                    except Exception as e:
+                        print(f"Erro durante o download: {str(e)}")
+                        continue
+
                 except ValueError:
                     print("Entrada inválida. Por favor, digite um número.")
 
