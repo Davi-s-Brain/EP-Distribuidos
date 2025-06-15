@@ -3,6 +3,7 @@ import socket
 import helpers
 import os
 from peer import Peer
+import time
 
 
 # Mostra o menu no terminal
@@ -166,6 +167,7 @@ def main(args: list):
                         remaining_chunks = total_chunks % len(available_peers)
                         
                         # Faz o download dos chunks
+                        download_start = time.time()
                         chunks_downloaded = 0
                         current_chunk = 0
                         
@@ -198,6 +200,15 @@ def main(args: list):
                                 if chunk_data:
                                     f.write(chunk_data)
 
+                        download_end = time.time()
+                        duration = download_end - download_start
+                        main_peer.add_download_stat(
+                            main_peer.chunck_size,
+                            len(available_peers),
+                            int(selected_file_size),
+                            duration
+                        )
+
                         print(f"Download do arquivo {selected_file_name} finalizado.")
                         # Limpa a lista de arquivos recebidos e chunks recebidos
                         main_peer.received_chunks = {}
@@ -208,6 +219,9 @@ def main(args: list):
 
                 except ValueError:
                     print("Entrada inválida. Por favor, digite um número.")
+
+        elif choice == "5":
+            main_peer.print_statistics()
 
         # Verifica se o usuário escolheu a opção de alterar o tamanho do chunk
         elif choice == "6":
