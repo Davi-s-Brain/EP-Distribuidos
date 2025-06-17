@@ -23,7 +23,6 @@ class Peer:
         self.chunck_size = chunck_size
         self.received_files = []
         self.received_chunks = {}
-        # Stats format: {(size, chunk_size, num_peers): [times]}
         self.download_stats = defaultdict(list)
         self.start_server()
 
@@ -84,28 +83,39 @@ class Peer:
             self.clock = sender_clock
             print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")   
 
-    def add_download_stat(self, file_size, chunk_size, num_peers, duration):
-        """Add download time and update running statistics"""
-        key = (file_size, chunk_size, num_peers)
-        self.download_stats[key].append(duration)
+    def add_download_stat(self, file_name, file_size, chunk_size, num_peers, duration):
+        """Adiciona estatísticas de download para um arquivo específico"""
+        if file_name not in self.download_stats:
+            self.download_stats[file_name] = {
+                "chunk_size": chunk_size,
+                "num_peers": num_peers,
+                "file_size": file_size,
+                "duration": []
+            }
+        self.download_stats[file_name]["duration"].append(duration)
 
     def print_statistics(self):
-        """Print aggregated statistics by file size"""
+        """Printa as estatísticas de download formatadas"""
         print(f"{'Tam. chunk':<11} | {'N peers':<8} | {'Tam. arquivo':<13} | {'N':<3} | {'Tempo [s]':<10} | {'Desvio':<10}")
 
-        # Sort by file size, then chunk size, then peers
-        sorted_keys = sorted(self.download_stats.keys())
+        print(self.download_stats)
         
-        for key in sorted_keys:
-            file_size, chunk_size, num_peers = key
-            times = self.download_stats[key]
+        try:
+            # Ordena os arquivos por tamanho
+            sorted_keys = sorted(self.download_stats.keys())
             
-            n = len(times)
-            if n > 0:
-                media = sum(times) / n
-                desvio = statistics.stdev(times) if n > 1 else 0.0
+            for key in sorted_keys:
+                stats = self.download_stats[key]
+                times = stats["duration"]
                 
-                print(f"{chunk_size:<11} | {num_peers:<8} | {file_size:<13} | {n:<3} | {media:<10.5f} | {desvio:<10.5f}")
+                n = len(times)
+                if n > 0:
+                    media = sum(times) / n
+                    desvio = statistics.stdev(times) if n > 1 else 0.0
+                    
+                    print(f"{stats['chunk_size']:<11} | {stats['num_peers']:<8} | {stats['file_size']:<13} | {n:<3} | {media:<10.5f} | {desvio:<10.5f}")
+        except Exception as e:
+            print(f"Erro ao exibir estatísticas: {e}")
 
 
     # Método para lidar com os comandos recebidos
@@ -117,8 +127,6 @@ class Peer:
         sender_port = splitted_command[0].split(":")[1]
 
         #Atualizando clock segundo modelo de Lamport
-        
-
         for neighbor in self.neighbors:
             if(neighbor['ip'] == sender_ip and neighbor['port'] == sender_port):
                 neighbor['clock'] = int(neighbor['clock'])

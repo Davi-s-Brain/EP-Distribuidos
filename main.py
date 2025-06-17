@@ -26,16 +26,16 @@ def run_automated_test(main_peer, file_name, chunk_size):
         message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n"
         main_peer.send_command(message, neighbor["ip"], int(neighbor["port"]))
     
-    time.sleep(1)  # Wait for peer initialization
+    time.sleep(1)
     
-    # List files
+    # Lista os arquivos
     for neighbor in main_peer.neighbors:
         if neighbor["status"] == "ONLINE":
             main_peer.increment_clock()
             message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} LS\n"
             main_peer.send_command(message, neighbor["ip"], int(neighbor["port"]), expect_response=True)
     
-    # Find target file
+    # Encontra o arquivo alvo
     target_file = None
     for file in main_peer.received_files:
         if file["name"] == file_name:
@@ -43,17 +43,17 @@ def run_automated_test(main_peer, file_name, chunk_size):
             break
     
     if target_file:
-        # Count unique peers
+        # Conta peers únicos
         unique_peers = set(p.strip() for p in target_file["peer"].split(","))
         num_peers = len(unique_peers)
         
-        # Calculate chunks
+        # Calcula o tamanho do chunk
         total_chunks = (int(target_file["size"]) + chunk_size - 1) // chunk_size
         chunks_received = 0
         
         download_start = time.time()
         
-        # Download using all available peers
+        # Faz o download do arquivo
         peers_list = list(unique_peers)
         while chunks_received < total_chunks:
             chunk_index = chunks_received
@@ -67,7 +67,7 @@ def run_automated_test(main_peer, file_name, chunk_size):
 
         duration = time.time() - download_start
         
-        # Add statistics
+        # Adiciona estatísticas de download
         main_peer.add_download_stat(
             file_name, 
             chunk_size,
@@ -100,7 +100,7 @@ def main(args: list):
     main_peer = Peer.create_peer(
         ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE", neighbors_file=params[1], chunck_size=256)
 
-    # Add test mode
+    # Adiciona modo de teste
     if len(args) > 3 and args[3] == "--test":
         file_name = args[4]
         chunk_size = int(args[5])
@@ -179,9 +179,12 @@ def main(args: list):
             for file in main_peer.received_files:
                 key = (file["name"], file["size"])
                 if key not in grouped_files:
-                    grouped_files[key] = {"peers": [file["peer"]]}
-                else:
-                    grouped_files[key]["peers"].append(file["peer"])
+                    grouped_files[key] = {"peers": set()}
+                # Adiciona acada peer ao conjunto de peers
+                for peer in file["peer"].split(','):
+                    peer = peer.strip()
+                    if peer:  # Only add non-empty peers
+                        grouped_files[key]["peers"].add(peer)
 
             if not grouped_files:
                 print("Nenhum arquivo encontrado.")
@@ -191,9 +194,9 @@ def main(args: list):
                 print(f"[0] {'<Cancelar>':<30}")
                 for index, (key, value) in enumerate(grouped_files.items(), start=1):
                     name, size = key
-                    peers = ", ".join(value["peers"])
-                    print(
-                        f"[{index}] {name:<30} | {size:<10} | {peers:<25}")
+
+                    peers = ", ".join(sorted(value["peers"]))
+                    print(f"[{index}] {name:<30} | {size:<10} | {peers:<25}")
 
                 print("\nDigite o número do arquivo para fazer o download:")
                 file_choice = input("> ").strip()
@@ -265,6 +268,7 @@ def main(args: list):
                             if current_chunk < total_chunks:
                                 current_chunk = 0  # Começa novamente do primeiro chunk se não tiver mais chunks para baixar
                         
+                        download_end = time.time()
                         # Escreve os chunks baixados no arquivo em ordem
                         with open(file_path, "wb") as f:
                             for chunk_index in range(total_chunks):
@@ -272,13 +276,12 @@ def main(args: list):
                                 if chunk_data:
                                     f.write(chunk_data)
 
-                        download_end = time.time()
                         duration = download_end - download_start
                         main_peer.add_download_stat(
                             selected_file_name,
+                            int(selected_file_size),
                             main_peer.chunck_size,
                             len(available_peers),
-                            int(selected_file_size),
                             duration
                         )
 
