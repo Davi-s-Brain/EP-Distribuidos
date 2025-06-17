@@ -3,9 +3,9 @@ import helpers
 import threading
 import os
 import base64
+import statistics
 from collections import defaultdict
 import time
-import statistics
 
 
 MAX_CONNECTIONS = 10
@@ -23,7 +23,8 @@ class Peer:
         self.chunck_size = chunck_size
         self.received_files = []
         self.received_chunks = {}
-        self.download_stats = defaultdict(list)  # {(chunk_size, num_peers, file_size): [tempos]}
+        # Stats format: {(size, chunk_size, num_peers): [times]}
+        self.download_stats = defaultdict(list)
         self.start_server()
 
     def increment_clock(self):
@@ -83,17 +84,28 @@ class Peer:
             self.clock = sender_clock
             print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")   
 
-    def add_download_stat(self, chunk_size, num_peers, file_size, duration):
-        key = (chunk_size, num_peers, file_size)
-        self.download_stats[key].append(duration) 
-    
+    def add_download_stat(self, file_size, chunk_size, num_peers, duration):
+        """Add download time and update running statistics"""
+        key = (file_size, chunk_size, num_peers)
+        self.download_stats[key].append(duration)
+
     def print_statistics(self):
+        """Print aggregated statistics by file size"""
         print(f"{'Tam. chunk':<11} | {'N peers':<8} | {'Tam. arquivo':<13} | {'N':<3} | {'Tempo [s]':<10} | {'Desvio':<10}")
-        for (chunk_size, n_peers, file_size), tempos in self.download_stats.items():
-            n = len(tempos)
-            media = sum(tempos) / n
-            desvio = statistics.stdev(tempos) if n > 1 else 0.0
-            print(f"{chunk_size:<11} | {n_peers:<8} | {file_size:<13} | {n:<3} | {media:<10.5f} | {desvio:<10.5f}")
+
+        # Sort by file size, then chunk size, then peers
+        sorted_keys = sorted(self.download_stats.keys())
+        
+        for key in sorted_keys:
+            file_size, chunk_size, num_peers = key
+            times = self.download_stats[key]
+            
+            n = len(times)
+            if n > 0:
+                media = sum(times) / n
+                desvio = statistics.stdev(times) if n > 1 else 0.0
+                
+                print(f"{chunk_size:<11} | {num_peers:<8} | {file_size:<13} | {n:<3} | {media:<10.5f} | {desvio:<10.5f}")
 
 
     # Método para lidar com os comandos recebidos
