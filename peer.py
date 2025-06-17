@@ -90,6 +90,7 @@ class Peer:
                 "chunk_size": chunk_size,
                 "num_peers": num_peers,
                 "file_size": file_size,
+                "deviation": 0.0,
                 "duration": []
             }
         self.download_stats[file_name]["duration"].append(duration)
@@ -112,6 +113,7 @@ class Peer:
                 if n > 0:
                     media = sum(times) / n
                     desvio = statistics.stdev(times) if n > 1 else 0.0
+                    stats["deviation"] = desvio
                     
                     print(f"{stats['chunk_size']:<11} | {stats['num_peers']:<8} | {stats['file_size']:<13} | {n:<3} | {media:<10.5f} | {desvio:<10.5f}")
         except Exception as e:
@@ -301,16 +303,16 @@ class Peer:
                 self.increment_clock() 
             else:
                 self.increment_clock()
-            file_name = splitted_command[3]
-            chunk_size = int(splitted_command[4])
-            chunk_index = int(splitted_command[5])
-
+        
             try:
+                file_name = splitted_command[3]
+                chunk_size = int(splitted_command[4])
+                chunk_index = int(splitted_command[5])
                 b64_data = command.split(" ", 6)[-1].strip()
                 file_data = base64.b64decode(b64_data)
                 self.store_chunk_data(file_name, chunk_index, file_data)
             except Exception as e:
-                print(f"Erro ao decodificar chunk: {e}")
+                print(f"Erro ao processar chunk: {e}")
 
     # Método que envia comandos para outros peers
     def send_command(self, command, ip, port, expect_response=False) -> bool:
@@ -358,10 +360,12 @@ class Peer:
         self.neighbors.append(neighbor_obj)
         print(f"Adicionando novo peer {ip}:{port} status {status}")
 
-    def get_chunk_data(self, filename, chunk_index):
-        key = f"{filename}_{chunk_index}"
-        return self.received_chunks.get(key)
-
     def store_chunk_data(self, filename, chunk_index, data):
-        key = f"{filename}_{chunk_index}"
-        self.received_chunks[key] = data
+        """Armazena um chunk de dados recebido"""
+        if filename not in self.received_chunks:
+            self.received_chunks[filename] = {}
+        self.received_chunks[filename][chunk_index] = data
+    
+    def get_chunk_data(self, filename, chunk_index):
+        """Recupera um chunk de dados armazenado"""
+        return self.received_chunks.get(filename, {}).get(chunk_index)

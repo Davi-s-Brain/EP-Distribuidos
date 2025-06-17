@@ -4,6 +4,8 @@ import helpers
 import os
 from peer import Peer
 import time
+import statistics
+import csv
 
 
 # Mostra o menu no terminal
@@ -15,25 +17,47 @@ def print_menu():
     print("\t[4] Buscar arquivos")
     print("\t[5] Exibir estatísticas")
     print("\t[6] Alterar tamanho de chunk")
+    print("\t[7] Salvar estatísicas em arquivo")
     print("\t[9] Sair")
 
 
 def run_automated_test(main_peer, file_name, chunk_size):
     """Executa teste automatizado para um arquivo específico"""
-    # Initialize peers
-    for neighbor in main_peer.neighbors:
-        main_peer.increment_clock()
-        message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n"
-        main_peer.send_command(message, neighbor["ip"], int(neighbor["port"]))
+    print("Iniciando teste automatizado...")
     
-    time.sleep(1)
+    # Initialize peers with retry mechanism
+    max_retries = 3
+    connected_peers = 0
     
-    # Lista os arquivos
+    for attempt in range(max_retries):
+        print(f"\nTentativa {attempt + 1} de conectar aos peers...")
+        
+        # Try to connect to all peers
+        for neighbor in main_peer.neighbors:
+            main_peer.increment_clock()
+            message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n"
+            if main_peer.send_command(message, neighbor["ip"], int(neighbor["port"])):
+                print(f"Conectado com sucesso ao peer {neighbor['ip']}:{neighbor['port']}")
+                connected_peers += 1
+        
+        time.sleep(1)  # Wait before retry
+
+        print(f"Status dos peers após HELLO: {main_peer.neighbors}")
+    
+    if connected_peers == 0:
+        print("Falha ao conectar com qualquer peer")
+        return False
+    
+    print("\nIniciando listagem de arquivos...")
+    # Lista os arquivos apenas dos peers online
     for neighbor in main_peer.neighbors:
         if neighbor["status"] == "ONLINE":
             main_peer.increment_clock()
             message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} LS\n"
+            print(f"Solicitando arquivos de {neighbor['ip']}:{neighbor['port']}")
             main_peer.send_command(message, neighbor["ip"], int(neighbor["port"]), expect_response=True)
+    
+    time.sleep(1)  # Wait for responses
     
     # Encontra o arquivo alvo
     target_file = None
@@ -43,42 +67,71 @@ def run_automated_test(main_peer, file_name, chunk_size):
             break
     
     if target_file:
-        # Conta peers únicos
-        unique_peers = set(p.strip() for p in target_file["peer"].split(","))
-        num_peers = len(unique_peers)
-        
-        # Calcula o tamanho do chunk
-        total_chunks = (int(target_file["size"]) + chunk_size - 1) // chunk_size
-        chunks_received = 0
-        
-        download_start = time.time()
-        
-        # Faz o download do arquivo
-        peers_list = list(unique_peers)
-        while chunks_received < total_chunks:
-            chunk_index = chunks_received
-            peer = peers_list[chunk_index % len(peers_list)]
-            ip, port = peer.split(":")
+        try:
+            # Criar arquivo vazio
+            file_path = os.path.join(main_peer.shared_directory, file_name)
+            with open(file_path, "wb") as f:
+                pass
             
-            main_peer.increment_clock()
-            dl_message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {file_name} {chunk_size} {chunk_index}\n"
-            if main_peer.send_command(dl_message, ip, int(port), expect_response=True):
-                chunks_received += 1
+            # Conta peers únicos
+            unique_peers = set(p.strip() for p in target_file["peer"].split(","))
+            num_peers = len(unique_peers)
+            
+            # Calcula chunks
+            total_chunks = (int(target_file["size"]) + chunk_size - 1) // chunk_size
+            chunks_received = 0
+            
+            download_start = time.time()
+            max_retries = 3
+            
+            # Faz download distribuindo chunks entre peers
+            peers_list = list(unique_peers)
+            while chunks_received < total_chunks:
+                chunk_index = chunks_received
+                peer = peers_list[chunk_index % len(peers_list)]
+                ip, port = peer.split(":")
+                
+                retries = 0
+                while retries < max_retries:
+                    main_peer.increment_clock()
+                    dl_message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {file_name} {chunk_size} {chunk_index}\n"
+                    if main_peer.send_command(dl_message, ip, int(port), expect_response=True):
+                        # Verifica se o chunk foi realmente recebido
+                        if main_peer.get_chunk_data(file_name, chunk_index):
+                            chunks_received += 1
+                            break
+                    retries += 1
+                    time.sleep(0.1)  # Pequeno delay entre tentativas
+                
+                if retries >= max_retries:
+                    print(f"Erro: Não foi possível baixar o chunk {chunk_index}")
+                    return False
 
-        duration = time.time() - download_start
-        
-        # Adiciona estatísticas de download
-        main_peer.add_download_stat(
-            file_name, 
-            chunk_size,
-            num_peers,
-            int(target_file["size"]),
-            duration
-        )
-        
-        print(f"TEST_RESULT;{file_name};{chunk_size};{num_peers};{target_file['size']};{duration:.6f}")
-        main_peer.print_statistics()
-        return True
+            # Escreve arquivo final
+            with open(file_path, "wb") as f:
+                for i in range(total_chunks):
+                    chunk_data = main_peer.get_chunk_data(file_name, i)
+                    if chunk_data:
+                        f.write(chunk_data)
+            
+            duration = time.time() - download_start
+            
+            # Adiciona estatísticas
+            main_peer.add_download_stat(
+                file_name,
+                chunk_size, 
+                num_peers,
+                int(target_file["size"]),
+                duration
+            )
+            
+            print(f"TEST_RESULT;{file_name};{chunk_size};{num_peers};{target_file['size']};{duration:.6f}")
+            main_peer.print_statistics()
+            return True
+            
+        except Exception as e:
+            print(f"Erro durante download: {e}")
+            return False
     
     return False
 
@@ -102,6 +155,7 @@ def main(args: list):
 
     # Adiciona modo de teste
     if len(args) > 3 and args[3] == "--test":
+        print("MODO DE TESTE ATIVADO.")
         file_name = args[4]
         chunk_size = int(args[5])
         if run_automated_test(main_peer, file_name, chunk_size):
@@ -146,6 +200,55 @@ def main(args: list):
                 print("Entrada inválida. Por favor, digite um número.")
 
         # Verifica se o usuário escolheu a opção de obter peers
+
+        # Salva estatísticas num arquivo
+        elif choice == "7":
+            try: # TEM QUE ARRUMAR AQUI
+                print("Digite o nome do arquivo para salvar as estatísticas (com extensão .csv):")
+                file_name_input = input("> ").strip()
+                if not file_name_input:
+                    print("Nome do arquivo não pode ser vazio.")
+                    continue
+
+                # Agrupa as estatísticas pelo nome do arquivo
+                stats_by_file = {}
+                print(main_peer.download_stats.keys())
+                for stat in main_peer.download_stats.values():
+                    print(stat)
+                    if stat["file_size"] not in stats_by_file:
+                        stats_by_file[stat["file_size"]] = []
+                    stats_by_file[stat["file_size"]].append(stat)
+
+                try:
+                    with open(file_name_input, "w", newline="") as csvfile:
+                        fieldnames = ["TamanhoArquivo", "TamanhoChunk", "NumPeers", "Tempo", "DesvioPadrao"]
+                        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                        writer.writeheader()
+                        for file_name, stats in stats_by_file.items():
+                            # Process only statistics that are dicts
+                            dict_stats = [s for s in stats if isinstance(s, dict)]
+                            if not dict_stats:
+                                continue
+                            durations = [s["duration"] for s in dict_stats]
+                            std_dev = statistics.stdev(durations) if len(durations) > 1 else 0.0
+                            first = dict_stats[0]
+                            writer.writerow({
+                                "TamanhoArquivo": first["file_size"],
+                                "TamanhoChunk": first["chunk_size"],
+                                "NumPeers": first["num_peers"],
+                                "Tempo": first["duration"],
+                                "DesvioPadrao": std_dev
+                            })
+                    print(f"Estatísticas salvas em {file_name_input}")
+
+                except IOError as e:
+                    print(f"Erro ao salvar estatísticas: {str(e)}")
+                    continue
+
+            except Exception as e:
+                print(f"Erro ao salvar estatísticas: {str(e)}")
+                continue
+
         elif choice == "2":
             original_neighbors = main_peer.neighbors.copy()
             for neighbor in original_neighbors:
@@ -326,7 +429,9 @@ def main(args: list):
             exit(0)
         else:
             print("Opção inválida. Tente novamente.")
-
+        # Se uma mensagem foi enviada, espera um pouco para evitar flood
+        
+        
 
 if __name__ == "__main__":
     args = sys.argv[1:]
