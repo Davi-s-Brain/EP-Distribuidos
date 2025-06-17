@@ -179,13 +179,16 @@ class Peer:
                 self.increment_clock()  
             else:
                 self.increment_clock()
+            
+            # Atualiza o status do peer que enviou a lista para ONLINE
+            self.change_neighbor_status(sender_ip, sender_port, "ONLINE", sender_clock)
+            
             recieved_neighbors = command.split()[4:]
             for neighbor in recieved_neighbors:
                 neighbor_info = neighbor.split(":")
-                for self_neigh in self.neighbors:
-                    if(neighbor_info[0] == self_neigh['ip'] and neighbor_info[1] == self_neigh['port'] and neighbor_info[3] < self_neigh['clock']):
-                        pass
-                    else:    
+                if len(neighbor_info) == 4:  # Verifica se tem todos os campos necessários
+                    # Só atualiza se o clock recebido for maior
+                    if int(neighbor_info[3]) >= self.clock:
                         self.change_neighbor_status(
                             neighbor_info[0], neighbor_info[1], neighbor_info[2], neighbor_info[3])
                 
@@ -338,6 +341,9 @@ class Peer:
     def change_neighbor_status(self, ip, port, status, clock):
         for neighbor in self.neighbors:
             if (neighbor["ip"] == ip and neighbor["port"] == port):
+                # Só atualiza para OFFLINE se o clock for maior
+                if status == "OFFLINE" and int(clock) < int(neighbor["clock"]):
+                    return
                 neighbor["status"] = status
                 neighbor["clock"] = clock
                 print(f"Atualizando peer {ip}:{port} status {status}")
