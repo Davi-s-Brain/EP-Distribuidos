@@ -21,13 +21,13 @@ def run_automated_test():
         "2",  # Seleciona segundo peer
         
         # Buscar arquivos
-        "4",  # Buscar arquivos
+        "4",  # Buscar arquivos BOTAR MAIS COISA AQUI
         "2",  # Seleciona primeiro arquivo para download
         
         # Ver estatísticas
         "7",  # Exibir estatísticas
 
-        "estatisticas",  # Salvar estatisticas em arquivo
+        "estatisticas.csv",  # Salvar estatisticas em arquivo
         
         # Sair
         "9"

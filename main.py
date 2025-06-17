@@ -21,120 +21,6 @@ def print_menu():
     print("\t[9] Sair")
 
 
-def run_automated_test(main_peer, file_name, chunk_size):
-    """Executa teste automatizado para um arquivo específico"""
-    print("Iniciando teste automatizado...")
-    
-    # Initialize peers with retry mechanism
-    max_retries = 3
-    connected_peers = 0
-    
-    for attempt in range(max_retries):
-        print(f"\nTentativa {attempt + 1} de conectar aos peers...")
-        
-        # Try to connect to all peers
-        for neighbor in main_peer.neighbors:
-            main_peer.increment_clock()
-            message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} HELLO\n"
-            if main_peer.send_command(message, neighbor["ip"], int(neighbor["port"])):
-                print(f"Conectado com sucesso ao peer {neighbor['ip']}:{neighbor['port']}")
-                connected_peers += 1
-        
-        time.sleep(1)  # Wait before retry
-
-        print(f"Status dos peers após HELLO: {main_peer.neighbors}")
-    
-    if connected_peers == 0:
-        print("Falha ao conectar com qualquer peer")
-        return False
-    
-    print("\nIniciando listagem de arquivos...")
-    # Lista os arquivos apenas dos peers online
-    for neighbor in main_peer.neighbors:
-        if neighbor["status"] == "ONLINE":
-            main_peer.increment_clock()
-            message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} LS\n"
-            print(f"Solicitando arquivos de {neighbor['ip']}:{neighbor['port']}")
-            main_peer.send_command(message, neighbor["ip"], int(neighbor["port"]), expect_response=True)
-    
-    time.sleep(1)  # Wait for responses
-    
-    # Encontra o arquivo alvo
-    target_file = None
-    for file in main_peer.received_files:
-        if file["name"] == file_name:
-            target_file = file
-            break
-    
-    if target_file:
-        try:
-            # Criar arquivo vazio
-            file_path = os.path.join(main_peer.shared_directory, file_name)
-            with open(file_path, "wb") as f:
-                pass
-            
-            # Conta peers únicos
-            unique_peers = set(p.strip() for p in target_file["peer"].split(","))
-            num_peers = len(unique_peers)
-            
-            # Calcula chunks
-            total_chunks = (int(target_file["size"]) + chunk_size - 1) // chunk_size
-            chunks_received = 0
-            
-            download_start = time.time()
-            max_retries = 3
-            
-            # Faz download distribuindo chunks entre peers
-            peers_list = list(unique_peers)
-            while chunks_received < total_chunks:
-                chunk_index = chunks_received
-                peer = peers_list[chunk_index % len(peers_list)]
-                ip, port = peer.split(":")
-                
-                retries = 0
-                while retries < max_retries:
-                    main_peer.increment_clock()
-                    dl_message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {file_name} {chunk_size} {chunk_index}\n"
-                    if main_peer.send_command(dl_message, ip, int(port), expect_response=True):
-                        # Verifica se o chunk foi realmente recebido
-                        if main_peer.get_chunk_data(file_name, chunk_index):
-                            chunks_received += 1
-                            break
-                    retries += 1
-                    time.sleep(0.1)  # Pequeno delay entre tentativas
-                
-                if retries >= max_retries:
-                    print(f"Erro: Não foi possível baixar o chunk {chunk_index}")
-                    return False
-
-            # Escreve arquivo final
-            with open(file_path, "wb") as f:
-                for i in range(total_chunks):
-                    chunk_data = main_peer.get_chunk_data(file_name, i)
-                    if chunk_data:
-                        f.write(chunk_data)
-            
-            duration = time.time() - download_start
-            
-            # Adiciona estatísticas
-            main_peer.add_download_stat(
-                file_name,
-                chunk_size, 
-                num_peers,
-                int(target_file["size"]),
-                duration
-            )
-            
-            print(f"TEST_RESULT;{file_name};{chunk_size};{num_peers};{target_file['size']};{duration:.6f}")
-            main_peer.print_statistics()
-            return True
-            
-        except Exception as e:
-            print(f"Erro durante download: {e}")
-            return False
-    
-    return False
-
 def main(args: list):
     # Realiza a leitura dos parâmetros passados na linha de comando
     params = args
@@ -152,15 +38,6 @@ def main(args: list):
     # Cria o peer principal
     main_peer = Peer.create_peer(
         ip=PEER_IP, port=PEER_PORT, shared_directory=shared_directory, status="ONLINE", neighbors_file=params[1], chunck_size=256)
-
-    # Adiciona modo de teste
-    if len(args) > 3 and args[3] == "--test":
-        print("MODO DE TESTE ATIVADO.")
-        file_name = args[4]
-        chunk_size = int(args[5])
-        if run_automated_test(main_peer, file_name, chunk_size):
-            sys.exit(0)
-        sys.exit(1)
 
     while True:
         send_message = False
@@ -221,23 +98,22 @@ def main(args: list):
 
                 try:
                     with open(file_name_input, "w", newline="") as csvfile:
-                        fieldnames = ["TamanhoArquivo", "TamanhoChunk", "NumPeers", "Tempo", "DesvioPadrao"]
+                        fieldnames = ["tamanho_arquivo", "tamanho_chunk", "num_peers", "tempo", "desvio_padrao"]
                         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                         writer.writeheader()
                         for file_name, stats in stats_by_file.items():
-                            # Process only statistics that are dicts
                             dict_stats = [s for s in stats if isinstance(s, dict)]
                             if not dict_stats:
                                 continue
-                            durations = [s["duration"] for s in dict_stats]
-                            std_dev = statistics.stdev(durations) if len(durations) > 1 else 0.0
+                            durations = [s["duration"][0] if isinstance(s["duration"], list) else s["duration"] for s in dict_stats]
+                            avg_duration = statistics.mean(durations)
                             first = dict_stats[0]
                             writer.writerow({
-                                "TamanhoArquivo": first["file_size"],
-                                "TamanhoChunk": first["chunk_size"],
-                                "NumPeers": first["num_peers"],
-                                "Tempo": first["duration"],
-                                "DesvioPadrao": std_dev
+                                "tamanho_arquivo": first["file_size"],
+                                "tamanho_chunk": first["chunk_size"],
+                                "num_peers": first["num_peers"],
+                                "tempo": avg_duration,
+                                "desvio_padrao": first["deviation"]
                             })
                     print(f"Estatísticas salvas em {file_name_input}")
 
