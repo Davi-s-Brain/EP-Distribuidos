@@ -3,9 +3,9 @@ import helpers
 import threading
 import os
 import base64
+import statistics
 from collections import defaultdict
 import time
-import statistics
 
 
 MAX_CONNECTIONS = 10
@@ -23,7 +23,7 @@ class Peer:
         self.chunck_size = chunck_size
         self.received_files = []
         self.received_chunks = {}
-        self.download_stats = defaultdict(list)  # {(chunk_size, num_peers, file_size): [tempos]}
+        self.download_stats = defaultdict(list)
         self.start_server()
 
     def increment_clock(self):
@@ -83,17 +83,41 @@ class Peer:
             self.clock = sender_clock
             print(f"=> Atualizando relogio para {self.clock} #Atualização de clock")   
 
-    def add_download_stat(self, chunk_size, num_peers, file_size, duration):
-        key = (chunk_size, num_peers, file_size)
-        self.download_stats[key].append(duration) 
-    
+    def add_download_stat(self, file_name, file_size, chunk_size, num_peers, duration):
+        """Adiciona estatísticas de download para um arquivo específico"""
+        if file_name not in self.download_stats:
+            self.download_stats[file_name] = {
+                "chunk_size": chunk_size,
+                "num_peers": num_peers,
+                "file_size": file_size,
+                "deviation": 0.0,
+                "duration": []
+            }
+        self.download_stats[file_name]["duration"].append(duration)
+
     def print_statistics(self):
+        """Printa as estatísticas de download formatadas"""
         print(f"{'Tam. chunk':<11} | {'N peers':<8} | {'Tam. arquivo':<13} | {'N':<3} | {'Tempo [s]':<10} | {'Desvio':<10}")
-        for (chunk_size, n_peers, file_size), tempos in self.download_stats.items():
-            n = len(tempos)
-            media = sum(tempos) / n
-            desvio = statistics.stdev(tempos) if n > 1 else 0.0
-            print(f"{chunk_size:<11} | {n_peers:<8} | {file_size:<13} | {n:<3} | {media:<10.5f} | {desvio:<10.5f}")
+
+        print(self.download_stats)
+        
+        try:
+            # Ordena os arquivos por tamanho
+            sorted_keys = sorted(self.download_stats.keys())
+            
+            for key in sorted_keys:
+                stats = self.download_stats[key]
+                times = stats["duration"]
+                
+                n = len(times)
+                if n > 0:
+                    media = sum(times) / n
+                    desvio = statistics.stdev(times) if n > 1 else 0.0
+                    stats["deviation"] = desvio
+                    
+                    print(f"{stats['chunk_size']:<11} | {stats['num_peers']:<8} | {stats['file_size']:<13} | {n:<3} | {media:<10.5f} | {desvio:<10.5f}")
+        except Exception as e:
+            print(f"Erro ao exibir estatísticas: {e}")
 
 
     # Método para lidar com os comandos recebidos
@@ -105,8 +129,6 @@ class Peer:
         sender_port = splitted_command[0].split(":")[1]
 
         #Atualizando clock segundo modelo de Lamport
-        
-
         for neighbor in self.neighbors:
             if(neighbor['ip'] == sender_ip and neighbor['port'] == sender_port):
                 neighbor['clock'] = int(neighbor['clock'])
@@ -159,13 +181,16 @@ class Peer:
                 self.increment_clock()  
             else:
                 self.increment_clock()
+            
+            # Atualiza o status do peer que enviou a lista para ONLINE
+            self.change_neighbor_status(sender_ip, sender_port, "ONLINE", sender_clock)
+            
             recieved_neighbors = command.split()[4:]
             for neighbor in recieved_neighbors:
                 neighbor_info = neighbor.split(":")
-                for self_neigh in self.neighbors:
-                    if(neighbor_info[0] == self_neigh['ip'] and neighbor_info[1] == self_neigh['port'] and neighbor_info[3] < self_neigh['clock']):
-                        pass
-                    else:    
+                if len(neighbor_info) == 4:  # Verifica se tem todos os campos necessários
+                    # Só atualiza se o clock recebido for maior
+                    if int(neighbor_info[3]) >= self.clock:
                         self.change_neighbor_status(
                             neighbor_info[0], neighbor_info[1], neighbor_info[2], neighbor_info[3])
                 
@@ -278,16 +303,16 @@ class Peer:
                 self.increment_clock() 
             else:
                 self.increment_clock()
-            file_name = splitted_command[3]
-            chunk_size = int(splitted_command[4])
-            chunk_index = int(splitted_command[5])
-
+        
             try:
+                file_name = splitted_command[3]
+                chunk_size = int(splitted_command[4])
+                chunk_index = int(splitted_command[5])
                 b64_data = command.split(" ", 6)[-1].strip()
                 file_data = base64.b64decode(b64_data)
                 self.store_chunk_data(file_name, chunk_index, file_data)
             except Exception as e:
-                print(f"Erro ao decodificar chunk: {e}")
+                print(f"Erro ao processar chunk: {e}")
 
     # Método que envia comandos para outros peers
     def send_command(self, command, ip, port, expect_response=False) -> bool:
@@ -318,6 +343,9 @@ class Peer:
     def change_neighbor_status(self, ip, port, status, clock):
         for neighbor in self.neighbors:
             if (neighbor["ip"] == ip and neighbor["port"] == port):
+                # Só atualiza para OFFLINE se o clock for maior
+                if status == "OFFLINE" and int(clock) < int(neighbor["clock"]):
+                    return
                 neighbor["status"] = status
                 neighbor["clock"] = clock
                 print(f"Atualizando peer {ip}:{port} status {status}")
@@ -332,10 +360,12 @@ class Peer:
         self.neighbors.append(neighbor_obj)
         print(f"Adicionando novo peer {ip}:{port} status {status}")
 
-    def get_chunk_data(self, filename, chunk_index):
-        key = f"{filename}_{chunk_index}"
-        return self.received_chunks.get(key)
-
     def store_chunk_data(self, filename, chunk_index, data):
-        key = f"{filename}_{chunk_index}"
-        self.received_chunks[key] = data
+        """Armazena um chunk de dados recebido"""
+        if filename not in self.received_chunks:
+            self.received_chunks[filename] = {}
+        self.received_chunks[filename][chunk_index] = data
+    
+    def get_chunk_data(self, filename, chunk_index):
+        """Recupera um chunk de dados armazenado"""
+        return self.received_chunks.get(filename, {}).get(chunk_index)

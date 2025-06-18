@@ -4,6 +4,8 @@ import helpers
 import os
 from peer import Peer
 import time
+import statistics
+import csv
 
 
 # Mostra o menu no terminal
@@ -15,6 +17,7 @@ def print_menu():
     print("\t[4] Buscar arquivos")
     print("\t[5] Exibir estatísticas")
     print("\t[6] Alterar tamanho de chunk")
+    print("\t[7] Salvar estatísicas em arquivo")
     print("\t[9] Sair")
 
 
@@ -74,6 +77,54 @@ def main(args: list):
                 print("Entrada inválida. Por favor, digite um número.")
 
         # Verifica se o usuário escolheu a opção de obter peers
+
+        # Salva estatísticas num arquivo
+        elif choice == "7":
+            try: # TEM QUE ARRUMAR AQUI
+                print("Digite o nome do arquivo para salvar as estatísticas (com extensão .csv):")
+                file_name_input = input("> ").strip()
+                if not file_name_input:
+                    print("Nome do arquivo não pode ser vazio.")
+                    continue
+
+                # Agrupa as estatísticas pelo nome do arquivo
+                stats_by_file = {}
+                print(main_peer.download_stats.keys())
+                for stat in main_peer.download_stats.values():
+                    print(stat)
+                    if stat["file_size"] not in stats_by_file:
+                        stats_by_file[stat["file_size"]] = []
+                    stats_by_file[stat["file_size"]].append(stat)
+
+                try:
+                    with open(file_name_input, "w", newline="") as csvfile:
+                        fieldnames = ["tamanho_arquivo", "tamanho_chunk", "num_peers", "tempo", "desvio_padrao"]
+                        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                        writer.writeheader()
+                        for file_name, stats in stats_by_file.items():
+                            dict_stats = [s for s in stats if isinstance(s, dict)]
+                            if not dict_stats:
+                                continue
+                            durations = [s["duration"][0] if isinstance(s["duration"], list) else s["duration"] for s in dict_stats]
+                            avg_duration = statistics.mean(durations)
+                            first = dict_stats[0]
+                            writer.writerow({
+                                "tamanho_arquivo": first["file_size"],
+                                "tamanho_chunk": first["chunk_size"],
+                                "num_peers": first["num_peers"],
+                                "tempo": avg_duration,
+                                "desvio_padrao": first["deviation"]
+                            })
+                    print(f"Estatísticas salvas em {file_name_input}")
+
+                except IOError as e:
+                    print(f"Erro ao salvar estatísticas: {str(e)}")
+                    continue
+
+            except Exception as e:
+                print(f"Erro ao salvar estatísticas: {str(e)}")
+                continue
+
         elif choice == "2":
             original_neighbors = main_peer.neighbors.copy()
             for neighbor in original_neighbors:
@@ -107,9 +158,12 @@ def main(args: list):
             for file in main_peer.received_files:
                 key = (file["name"], file["size"])
                 if key not in grouped_files:
-                    grouped_files[key] = {"peers": [file["peer"]]}
-                else:
-                    grouped_files[key]["peers"].append(file["peer"])
+                    grouped_files[key] = {"peers": set()}
+                # Adiciona acada peer ao conjunto de peers
+                for peer in file["peer"].split(','):
+                    peer = peer.strip()
+                    if peer:  # Only add non-empty peers
+                        grouped_files[key]["peers"].add(peer)
 
             if not grouped_files:
                 print("Nenhum arquivo encontrado.")
@@ -119,9 +173,9 @@ def main(args: list):
                 print(f"[0] {'<Cancelar>':<30}")
                 for index, (key, value) in enumerate(grouped_files.items(), start=1):
                     name, size = key
-                    peers = ", ".join(value["peers"])
-                    print(
-                        f"[{index}] {name:<30} | {size:<10} | {peers:<25}")
+
+                    peers = ", ".join(sorted(value["peers"]))
+                    print(f"[{index}] {name:<30} | {size:<10} | {peers:<25}")
 
                 print("\nDigite o número do arquivo para fazer o download:")
                 file_choice = input("> ").strip()
@@ -193,6 +247,7 @@ def main(args: list):
                             if current_chunk < total_chunks:
                                 current_chunk = 0  # Começa novamente do primeiro chunk se não tiver mais chunks para baixar
                         
+                        download_end = time.time()
                         # Escreve os chunks baixados no arquivo em ordem
                         with open(file_path, "wb") as f:
                             for chunk_index in range(total_chunks):
@@ -200,12 +255,12 @@ def main(args: list):
                                 if chunk_data:
                                     f.write(chunk_data)
 
-                        download_end = time.time()
                         duration = download_end - download_start
                         main_peer.add_download_stat(
+                            selected_file_name,
+                            int(selected_file_size),
                             main_peer.chunck_size,
                             len(available_peers),
-                            int(selected_file_size),
                             duration
                         )
 
@@ -250,7 +305,9 @@ def main(args: list):
             exit(0)
         else:
             print("Opção inválida. Tente novamente.")
-
+        # Se uma mensagem foi enviada, espera um pouco para evitar flood
+        
+        
 
 if __name__ == "__main__":
     args = sys.argv[1:]
