@@ -20,9 +20,31 @@ def run_automated_test():
         "1",  # Listar peers
         "2",  # Seleciona segundo peer
         
-        # Buscar arquivos
-        "4",  # Buscar arquivos BOTAR MAIS COISA AQUI
-        "2",  # Seleciona primeiro arquivo para download
+        # Buscar arquivos e fazer download 10 vezes
+        "4",  # Buscar arquivos (tentativa 1)
+        "3",  # Download do arquivo (tentativa 1)
+        "4",  # Buscar arquivos (tentativa 3)
+        "3",  # Download do arquivo (tentativa 3)
+        "4",  # Buscar arquivos (tentativa 3)
+        "3",  # Download do arquivo (tentativa 3)
+        # "4",  # Buscar arquivos (tentativa 4)
+        # "3",  # Download do arquivo (tentativa 4)
+        # "4",  # Buscar arquivos (tentativa 5)
+        # "3",  # Download do arquivo (tentativa 5)
+        # "4",  # Buscar arquivos (tentativa 6)
+        # "3",  # Download do arquivo (tentativa 6)
+        # "4",  # Buscar arquivos (tentativa 7)
+        # "3",  # Download do arquivo (tentativa 7)
+        # "4",  # Buscar arquivos (tentativa 8)
+        # "3",  # Download do arquivo (tentativa 8)
+        # "4",  # Buscar arquivos (tentativa 9)   
+        # "3",  # Download do arquivo (tentativa 9)
+        # "4",  # Buscar arquivos (tentativa 10)
+        # "3",  # Download do arquivo (tentativa 10)
+        # "4",  # Buscar arquivos (tentativa 11)
+        # "3",  # Download do arquivo (tentativa 11)
+        # "4",  # Buscar arquivos (tentativa 12)
+        # "3",  # Download do arquivo (tentativa 12)
         
         # Ver estatísticas
         "7",  # Exibir estatísticas
@@ -38,7 +60,7 @@ def run_automated_test():
         peer1.expect(">")  # Espera pelo prompt
         print(f"\nEnviando comando: {cmd}")
         peer1.sendline(cmd)
-        time.sleep(1)  # Espera processamento
+        time.sleep(3)  # Espera processamento
         print(peer1.before.decode())  # Mostra output
 
     # Encerra os peers
