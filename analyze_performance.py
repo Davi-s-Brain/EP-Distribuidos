@@ -2,7 +2,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from scipy import stats
 import os
 import warnings
 import glob
@@ -11,7 +10,7 @@ from collections import defaultdict
 def load_data():
     """Load and process statistics data"""
     stats = []
-    for file in glob.glob("csv/estatistica*.csv"):
+    for file in glob.glob("csv_peers/estatistica*.csv"):
         df = pd.read_csv(file)
         stats.append(df)
     
@@ -104,7 +103,61 @@ def analyze_chunk_performance():
     plt.savefig('plots/download_time_analysis.png')
     plt.close()
 
+def analyze_peer_impact():
+    """Analyze impact of number of peers on performance"""
+    df = load_data()
+    
+    # Create plots directory
+    os.makedirs("plots_peers", exist_ok=True)
+    
+    # Set style
+    sns.set_theme(style="whitegrid", font_scale=1.2)
+
+    # 1. Download time vs number of peers
+    plt.figure(figsize=(12, 8))
+    sns.lineplot(data=df, x='num_peers', y='tempo', hue='tamanho_arquivo', marker='o')
+    plt.title('Tempo de Download vs Número de Peers')
+    plt.xlabel('Número de Peers')
+    plt.ylabel('Tempo de Download (s)')
+    plt.legend(title='Tamanho do Arquivo')
+    plt.savefig('plots/tempo_vs_peers.png')
+    plt.close()
+
+    # 2. Boxplot para mostrar distribuição
+    plt.figure(figsize=(12, 8))
+    sns.boxplot(data=df, x='num_peers', y='tempo', hue='tamanho_arquivo')
+    plt.title('Distribuição do Tempo de Download por Número de Peers')
+    plt.xlabel('Número de Peers')
+    plt.ylabel('Tempo de Download (s)')
+    plt.legend(title='Tamanho do Arquivo')
+    plt.savefig('plots/boxplot_tempo_vs_peers.png')
+    plt.close()
+
+    # 3. Estatística descritiva
+    print("\nEstatística descritiva por número de peers:")
+    print(df.groupby(['num_peers', 'tamanho_arquivo'])['tempo'].describe())
+
 if __name__ == "__main__":
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
         analyze_chunk_performance()
+        analyze_peer_impact()
+
+# Carregar o CSV
+df = pd.read_csv("estatistica.csv")
+
+# Se quiser filtrar por um tamanho de chunk específico (ex: 256)
+df_filtrado = df[df['tamanho_chunk'] == 256]
+
+plt.figure(figsize=(8,5))
+sns.lineplot(data=df_filtrado, x='num_peers', y='tempo', marker='o')
+plt.title('Tempo de Download vs Número de Peers (Chunk=256)')
+plt.xlabel('Número de Peers')
+plt.ylabel('Tempo de Download (s)')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('tempo_vs_peers.png')
+plt.show()
+
+agrupado = df_filtrado.groupby('num_peers')['tempo'].agg(['mean', 'std', 'count'])
+print(agrupado)
