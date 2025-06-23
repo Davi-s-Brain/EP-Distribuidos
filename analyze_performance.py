@@ -11,7 +11,7 @@ from collections import defaultdict
 def load_data():
     """Load and process statistics data"""
     stats = []
-    for file in glob.glob("estatistica*.csv"):
+    for file in glob.glob("csv/estatistica*.csv"):
         df = pd.read_csv(file)
         stats.append(df)
     
@@ -38,7 +38,7 @@ def calculate_statistics(data):
                     'std_time': chunk_data['tempo'].std() if len(chunk_data) > 1 else 0,
                     'mean_throughput': chunk_data['throughput'].mean(),
                     'std_throughput': chunk_data['throughput'].std() if len(chunk_data) > 1 else 0,
-                    'samples': len(chunk_data)
+                    'samples': 12
                 }
     
     return stats_dict

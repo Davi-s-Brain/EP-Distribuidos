@@ -185,14 +185,24 @@ class Peer:
             # Atualiza o status do peer que enviou a lista para ONLINE
             self.change_neighbor_status(sender_ip, sender_port, "ONLINE", sender_clock)
             
-            recieved_neighbors = command.split()[4:]
-            for neighbor in recieved_neighbors:
-                neighbor_info = neighbor.split(":")
-                if len(neighbor_info) == 4:  # Verifica se tem todos os campos necessários
-                    # Só atualiza se o clock recebido for maior
-                    if int(neighbor_info[3]) >= self.clock:
-                        self.change_neighbor_status(
-                            neighbor_info[0], neighbor_info[1], neighbor_info[2], neighbor_info[3])
+            num_peers = int(splitted_command[3])
+            for i in range(num_peers):
+                peer_info = splitted_command[4 + i]
+                parts = peer_info.split(":")
+                if len(parts) >= 4:
+                    ip, port, status, clock = parts[0], parts[1], parts[2], int(parts[3])
+                    # Não adiciona a si mesmo
+                    if ip == self.ip and str(self.port) == port:
+                        continue
+                    # Verifica se já existe na lista
+                    exists = any(n['ip'] == ip and str(n['port']) == port for n in self.neighbors)
+                    if not exists:
+                        self.neighbors.append({
+                            "ip": ip,
+                            "port": port,
+                            "status": status,
+                            "clock": clock
+                        })
                 
 
         # Verifica se o comando recebido é do tipo BYE

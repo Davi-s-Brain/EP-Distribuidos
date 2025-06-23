@@ -20,7 +20,7 @@ def setup_plot_style():
 def load_and_process_data():
     """Load and process statistics data"""
     stats = []
-    for file in glob.glob("estatistica*.csv"):
+    for file in glob.glob("csv/estatistica*.csv"):
         try:
             df = pd.read_csv(file)
             stats.append(df)
