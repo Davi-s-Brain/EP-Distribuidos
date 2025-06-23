@@ -6,6 +6,8 @@ from peer import Peer
 import time
 import statistics
 import csv
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 
 # Mostra o menu no terminal
@@ -19,6 +21,48 @@ def print_menu():
     print("\t[6] Alterar tamanho de chunk")
     print("\t[7] Salvar estatísicas em arquivo")
     print("\t[9] Sair")
+
+
+def download_chunk(main_peer, file_name, chunk_size, chunk_index, peer_ip, peer_port):
+    """Baixa um chunk específico de um peer."""
+    try:
+        main_peer.increment_clock()
+        message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {file_name} {chunk_size} {chunk_index}\n"
+        return main_peer.send_command(message, peer_ip, peer_port, expect_response=True)
+    except Exception as e:
+        print(f"Erro ao baixar chunk {chunk_index}: {e}")
+        return False
+
+
+def download_file_parallel(main_peer, file_info, chunk_size):
+    """Faz o download paralelo dos chunks de todos os peers disponíveis."""
+    file_name = file_info["name"]
+    file_size = int(file_info["size"])
+    peers = [p.strip() for p in file_info["peer"].split(",") if p.strip()]
+    peer_list = [(p.split(":")[0], int(p.split(":")[1])) for p in peers]
+    total_chunks = (file_size + chunk_size - 1) // chunk_size
+
+    start_time = time.time()
+    with ThreadPoolExecutor(max_workers=len(peer_list)) as executor:
+        futures = []
+        for chunk_index in range(total_chunks):
+            peer_ip, peer_port = peer_list[chunk_index % len(peer_list)]
+            futures.append(
+                executor.submit(
+                    download_chunk, main_peer, file_name, chunk_size, chunk_index, peer_ip, peer_port
+                )
+            )
+        # Aguarda todos os downloads terminarem
+        for i, future in enumerate(futures):
+            try:
+                success = future.result(timeout=10)
+                if not success:
+                    print(f"Falha ao baixar chunk {i}")
+            except Exception as e:
+                print(f"Erro no chunk {i}: {e}")
+
+    duration = time.time() - start_time
+    return duration
 
 
 def main(args: list):
@@ -207,67 +251,50 @@ def main(args: list):
                             pass
                             
                         # Prepara a lista de peers disponíveis
-                        available_peers = []
-                        for peer in selected_peers:
-                            for p in peer.split(','):
-                                p = p.strip()
-                                if p:
-                                    ip, port = p.split(':')
-                                    available_peers.append((ip, int(port)))
-                        
-                        # Calcula o número total de chunks e distribui entre os peers
-                        total_chunks = (int(selected_file_size) + main_peer.chunck_size - 1) // main_peer.chunck_size
-                        chunks_per_peer = total_chunks // len(available_peers)
-                        remaining_chunks = total_chunks % len(available_peers)
-                        
-                        # Faz o download dos chunks
-                        download_start = time.time()
-                        chunks_downloaded = 0
-                        current_chunk = 0
-                        
-                        while chunks_downloaded < total_chunks:
-                            for peer_index, (peer_ip, peer_port) in enumerate(available_peers):
-                                # Calcula o intervalo de chunks para este peer
-                                start_chunk = current_chunk
-                                end_chunk = min(current_chunk + chunks_per_peer + (1 if peer_index < remaining_chunks else 0), total_chunks)
-                                
-                                # Faz o download dos chunks deste peer
-                                for chunk_index in range(start_chunk, end_chunk):
-                                    if not main_peer.get_chunk_data(selected_file_name, chunk_index):
-                                        main_peer.increment_clock()
-                                        dl_message = f"{main_peer.ip}:{main_peer.port} {main_peer.clock} DL {selected_file_name} {main_peer.chunck_size} {chunk_index}\n"
-                                        print(f"Encaminhando mensagem: '{dl_message.strip()}' para {peer_ip}:{peer_port}")
-                                        main_peer.send_command(dl_message, peer_ip, peer_port, expect_response=True)
-                                        chunks_downloaded += 1
-                                
-                                current_chunk = end_chunk
-                                if current_chunk >= total_chunks:
-                                    break
-                            
-                            if current_chunk < total_chunks:
-                                current_chunk = 0  # Começa novamente do primeiro chunk se não tiver mais chunks para baixar
-                        
-                        download_end = time.time()
-                        # Escreve os chunks baixados no arquivo em ordem
-                        with open(file_path, "wb") as f:
-                            for chunk_index in range(total_chunks):
-                                chunk_data = main_peer.get_chunk_data(selected_file_name, chunk_index)
-                                if chunk_data:
-                                    f.write(chunk_data)
+                        try:
+                            available_peers = []
+                            for peer in selected_peers:
+                                for p in peer.split(','):
+                                    p = p.strip()
+                                    if p:
+                                        ip, port = p.split(':')
+                                        available_peers.append(f"{ip}:{port}")
 
-                        duration = download_end - download_start
-                        main_peer.add_download_stat(
-                            selected_file_name,
-                            int(selected_file_size),
-                            main_peer.chunck_size,
-                            len(available_peers),
-                            duration
-                        )
+                            # Monta o dicionário file_info
+                            file_info = {
+                                "name": selected_file_name,
+                                "size": selected_file_size,
+                                "peer": ",".join(available_peers)
+                            }
 
-                        print(f"Download do arquivo {selected_file_name} finalizado.")
-                        # Limpa a lista de arquivos recebidos e chunks recebidos
-                        main_peer.received_chunks = {}
+                            duration = download_file_parallel(main_peer, file_info, main_peer.chunck_size)
+
+                            # Salva o arquivo
+                            file_path = os.path.join(shared_directory, selected_file_name)
+                            total_chunks = (int(selected_file_size) + main_peer.chunck_size - 1) // main_peer.chunck_size
+                            with open(file_path, "wb") as f:
+                                for chunk_index in range(total_chunks):
+                                    chunk_data = main_peer.get_chunk_data(selected_file_name, chunk_index)
+                                    if chunk_data:
+                                        f.write(chunk_data)
+                                    else:
+                                        print(f"Chunk {chunk_index} ausente!")
+
+                            # Estatísticas
+                            main_peer.add_download_stat(
+                                selected_file_name,
+                                int(selected_file_size),
+                                main_peer.chunck_size,
+                                len(available_peers),
+                                duration
+                            )
+                            print(f"Download do arquivo {selected_file_name} finalizado em {duration:.2f}s")
+                            main_peer.received_chunks = {}
                         
+                        except Exception as e:
+                            print(f"Erro ao baixar o arquivo: {str(e)}")
+                            continue
+
                     except Exception as e:
                         print(f"Erro durante o download: {str(e)}")
                         continue
